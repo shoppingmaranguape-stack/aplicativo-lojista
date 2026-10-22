@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000064">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lojista MSH">
+<title>Faturamento Lojista — Maranguape Shopping Mall</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--azul:#000064;--verm:#DD0000;--amar:#EDC228;--verde:#7ACB45;--fundo:#F4F5FA;--texto:#1B1B3A;--suave:#4A4F6A;--borda:#C9CCDA;--erro:#B00000;--ok:#2E6B12}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--fundo);color:var(--texto);font-family:Poppins,'Segoe UI',Arial,sans-serif;font-size:17px;line-height:1.5}
+#topo{background:#fff;position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top,0px)}
+#topo .linha{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;max-width:640px;margin:0 auto}
+#topo img{height:46px;width:auto;display:block}
+#topo .quem{font-size:13px;color:var(--suave);text-align:right;line-height:1.3}
+.faixa{display:grid;grid-template-columns:repeat(4,1fr);height:6px}
+.faixa i:nth-child(1){background:var(--azul)}.faixa i:nth-child(2){background:var(--verm)}.faixa i:nth-child(3){background:var(--amar)}.faixa i:nth-child(4){background:var(--verde)}
+main{max-width:640px;margin:0 auto;padding:20px 18px 120px;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:25px;line-height:1.25;color:var(--azul)}
+p{margin:0}
+.sub{color:var(--suave)}
+.card{background:#fff;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;border-left:6px solid var(--azul)}
+.card.verm{border-left-color:var(--verm)}.card.amar{border-left-color:var(--amar)}.card.verde{border-left-color:var(--verde)}.card.cinza{border-left-color:var(--borda)}.card.sem{border-left:none}
+label{font-weight:600;font-size:16px}
+input,select{font:inherit;font-size:18px;height:54px;border:2px solid var(--borda);border-radius:12px;padding:0 14px;width:100%;background:#fff;color:var(--texto)}
+input:focus,select:focus,button:focus-visible{outline:3px solid var(--amar);outline-offset:2px;border-color:var(--azul)}
+.campo{display:flex;flex-direction:column;gap:6px}
+.valor{display:flex;align-items:center;gap:8px;border:2px solid var(--azul);border-radius:12px;padding:0 14px;height:66px;background:#fff}
+.valor span{font-size:22px;font-weight:600;color:var(--azul)}
+.valor input{border:none;height:auto;padding:0;font-size:28px;font-weight:600}
+.codigo{text-align:center;font-size:30px;font-weight:600;letter-spacing:10px;height:66px;border-color:var(--azul)}
+.btn{font:inherit;min-height:56px;border-radius:999px;border:none;background:var(--azul);color:#fff;font-size:18px;font-weight:600;cursor:pointer;padding:0 22px;width:100%}
+.btn.sec{background:#fff;color:var(--azul);border:2px solid var(--azul)}
+.btn.perigo{background:#fff;color:var(--erro);border:2px solid var(--erro)}
+.btn.peq{min-height:44px;font-size:15px;width:auto}
+.btn:disabled{opacity:.55;cursor:wait}
+.link{font:inherit;background:none;border:none;color:var(--azul);font-weight:600;text-decoration:underline;cursor:pointer;min-height:44px;font-size:16px;padding:0}
+.seg{display:grid;gap:6px;background:#fff;border-radius:999px;padding:6px}
+.seg button{font:inherit;min-height:48px;border:none;border-radius:999px;background:transparent;color:var(--azul);font-weight:600;font-size:15px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--azul);color:#fff}
+.check{display:flex;gap:12px;align-items:flex-start}
+.check input{width:26px;height:26px;flex-shrink:0;margin:2px 0 0}
+.check label{font-weight:400;font-size:15px;line-height:1.45}
+.erro{color:var(--erro);font-weight:500;font-size:16px}
+.aviso{background:#FFF7D6;color:#5C4A00;border-radius:12px;padding:12px 14px;font-size:15px}
+.grade2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.num{font-size:28px;font-weight:700;color:var(--azul);line-height:1.2}
+.peq{font-size:14px;color:var(--suave)}
+.item{background:#fff;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.item .l1,.item .l2{display:flex;justify-content:space-between;gap:10px}
+.item .l2{font-size:14px;color:var(--suave)}
+.okt{color:var(--ok);font-weight:600}.atr{color:var(--erro);font-weight:600}
+.dados{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:16px}
+.dados dt{color:var(--suave)}.dados dd{margin:0;font-weight:600}
+.pills{display:flex;flex-wrap:wrap;gap:10px}
+.pill{font:inherit;min-height:50px;padding:0 16px;border-radius:999px;border:2px solid var(--azul);background:#fff;color:var(--azul);font-weight:600;font-size:16px;cursor:pointer}
+.pill[aria-pressed="true"]{background:var(--azul);color:#fff}
+nav#menu{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #DDE0EC;padding:6px 6px calc(10px + env(safe-area-inset-bottom,0px));z-index:5}
+nav#menu .in{max-width:640px;margin:0 auto;display:grid;gap:4px}
+nav#menu button{font:inherit;min-height:56px;border:none;background:transparent;border-radius:14px;color:var(--suave);font-size:13px;font-weight:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer}
+nav#menu button[aria-current="page"]{background:#E6E8F5;color:var(--azul);font-weight:700}
+nav#menu svg{width:26px;height:26px}
+.centro{text-align:center}
+.carregando{padding:60px 0;text-align:center;color:var(--suave)}
+</style>
+</head>
+<body>
+<header id="topo">
+  <div class="linha">
+    <img src="logo.png" alt="Maranguape Shopping Mall">
+    <div class="quem" id="quem"></div>
+  </div>
+  <div class="faixa" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+</header>
+<main id="app"><div class="carregando">Carregando…</div></main>
+<nav id="menu" hidden><div class="in" id="menuIn"></div></nav>
+
+<script>
+/* ============ CONFIGURAÇÃO ============ */
+const SUPA_URL = 'https://uutglqejytnpynvguige.supabase.co';
+const SUPA_KEY = 'sb_publishable_58Wp8Jd9hXa3JAFkLG4X3g_7eucTYUO';
+const DOMINIO_COLAB = 'colaborador.shoppingmaranguape.com.br'; // login do colaborador: CPF@esse domínio
+
+/* ============ APARELHO E CLIENTE ============ */
+function idAparelho() {
+  let v = localStorage.getItem('msh_disp');
+  if (!v) { v = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)); localStorage.setItem('msh_disp', v); }
+  return v;
+}
+const DISP = idAparelho();
+function descAparelho() {
+  const u = navigator.userAgent;
+  const so = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac/.test(u) ? 'Mac' : 'Outro';
+  const nav = /Edg\//.test(u) ? 'Edge' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : /Firefox\//.test(u) ? 'Firefox' : 'Navegador';
+  return so + ' / ' + nav;
+}
+let lojaSel = localStorage.getItem('msh_loja') || '';
+let sb = criarCliente();
+function criarCliente() {
+  const h = { 'x-dispositivo': DISP };
+  if (lojaSel) h['x-loja'] = String(lojaSel);
+  return supabase.createClient(SUPA_URL, SUPA_KEY, { global: { headers: h }, auth: { persistSession: true, storageKey: 'msh-auth', detectSessionInUrl: true } });
+}
+function definirLoja(id) {
+  lojaSel = id ? String(id) : '';
+  if (lojaSel) localStorage.setItem('msh_loja', lojaSel); else localStorage.removeItem('msh_loja');
+  sb = criarCliente();
+  ouvirAuth();
+}
+
+/* ============ ESTADO ============ */
+const S = { perfil: null, lojas: [], lancs: [], tela: null, tipoEntrada: 'lojista', recuperando: false };
+
+/* ============ UTILITÁRIOS ============ */
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const brl = n => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const so = s => String(s || '').replace(/\D/g, '');
+function iso(d) { const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
+function hoje() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+function somaDias(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function br(isoStr) { const [a, m, d] = isoStr.slice(0, 10).split('-'); return d + '/' + m; }
+function brAno(isoStr) { const [a, m, d] = isoStr.slice(0, 10).split('-'); return d + '/' + m + '/' + a; }
+function hora(ts) { const d = new Date(ts); return br(iso(d)) + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+const SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+function parseValor(s) { let t = String(s).replace(/[^\d.,]/g, ''); if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); const v = parseFloat(t); return isNaN(v) ? NaN : Math.round(v * 100) / 100; }
+function msgErro(e) {
+  const m = (e && (e.message || e.error_description)) || String(e);
+  if (/Invalid login credentials/i.test(m)) return 'E-mail (ou CPF) ou senha incorretos.';
+  if (/Email not confirmed/i.test(m)) return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
+  if (/Token has expired|invalid/i.test(m) && /token|otp/i.test(m)) return 'Código inválido ou vencido. Peça um novo código.';
+  if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.';
+  if (/duplicate key|lancamentos_loja_id_dia_key/i.test(m)) return 'Esse dia já foi lançado. Para corrigir, fale com a administração do shopping.';
+  if (/User already registered/i.test(m)) return 'Este e-mail já tem cadastro. Use "Entrar" ou "Esqueci minha senha".';
+  if (/Password should be/i.test(m)) return 'A senha precisa ter pelo menos 8 caracteres.';
+  return m;
+}
+function ocupado(btn, sim, txt) { if (!btn) return; if (sim) { btn.dataset.t = btn.textContent; btn.textContent = txt || 'Aguarde…'; btn.disabled = true; } else { btn.textContent = btn.dataset.t || btn.textContent; btn.disabled = false; } }
+function topo(txt) { $('#quem').innerHTML = txt || ''; }
+function menu(itens, atual) {
+  const m = $('#menu');
+  if (!itens) { m.hidden = true; return; }
+  m.hidden = false;
+  $('#menuIn').style.gridTemplateColumns = `repeat(${itens.length},minmax(0,1fr))`;
+  $('#menuIn').innerHTML = itens.map(i => `<button type="button" data-ir="${i.id}" ${i.id === atual ? 'aria-current="page"' : ''}>${ICONES[i.icone]}<span>${i.nome}</span></button>`).join('');
+  $('#menuIn').querySelectorAll('button').forEach(b => b.onclick = () => irPara(b.dataset.ir));
+}
+const ICONES = {
+  casa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>',
+  mais: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+  lista: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  pontos: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>',
+  loja: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 9l1.5-5h13L20 9"/><path d="M4 9h16v11H4z"/><path d="M10 20v-6h4v6"/></svg>'
+};
+
+/* ============ ENTRADA ============ */
+async function telaEntrada(erro) {
+  S.tela = 'entrada'; menu(null); topo('');
+  let lojas = [];
+  try { const r = await sb.rpc('lojas_para_login'); lojas = r.data || []; } catch (e) {}
+  const t = S.tipoEntrada;
+  app.innerHTML = `
+  <div><h1>Faturamento da loja</h1><p class="sub" style="margin-top:6px">Escolha como você entra:</p></div>
+  <div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr))" role="group" aria-label="Tipo de acesso">
+    <button type="button" data-t="lojista" aria-pressed="${t === 'lojista'}">Lojista ou gerente</button>
+    <button type="button" data-t="colab" aria-pressed="${t === 'colab'}">Colaborador</button>
+    <button type="button" data-t="gestao" aria-pressed="${t === 'gestao'}">Gestão</button>
+  </div>
+  <form class="card" id="fEntrar" novalidate>
+    ${t === 'lojista' ? `<div class="campo"><label for="eLoja">Sua loja</label><select id="eLoja"><option value="">Escolha a loja</option>${lojas.map(l => `<option value="${l.id}" ${String(l.id) === lojaSel ? 'selected' : ''}>${esc(l.nome_fantasia)}</option>`).join('')}</select></div>` : ''}
+    ${t === 'colab'
+      ? `<div class="campo"><label for="eUser">CPF</label><input id="eUser" inputmode="numeric" autocomplete="username" placeholder="000.000.000-00"></div>`
+      : `<div class="campo"><label for="eUser">E-mail</label><input id="eUser" type="email" autocomplete="username" placeholder="seuemail@exemplo.com"></div>`}
+    <div class="campo"><label for="eSenha">Senha</label><input id="eSenha" type="password" autocomplete="current-password"></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <button class="btn" id="bEntrar" type="submit">Entrar</button>
+    <button class="link" type="button" id="bEsqueci">Esqueci minha senha</button>
+  </form>
+  ${t === 'lojista' ? `<div class="centro" style="display:flex;flex-direction:column;gap:8px"><span class="sub">É lojista e ainda não tem acesso?</span><button class="btn sec" type="button" id="bCadastro">Fazer meu cadastro</button></div>` : ''}
+  ${t === 'colab' ? `<p class="sub centro">Colaborador não faz cadastro: o lojista da sua loja cadastra seu CPF e passa a senha inicial.</p>` : ''}`;
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tipoEntrada = b.dataset.t; telaEntrada(); });
+  $('#bEsqueci').onclick = telaEsqueci;
+  if ($('#bCadastro')) $('#bCadastro').onclick = telaCadastro;
+  $('#fEntrar').onsubmit = async ev => {
+    ev.preventDefault();
+    const btn = $('#bEntrar');
+    let user = $('#eUser').value.trim(); const senha = $('#eSenha').value;
+    if (t === 'lojista') { const l = $('#eLoja').value; if (!l) return telaEntrada('Escolha a sua loja.'); definirLoja(l); }
+    if (t === 'gestao') definirLoja('');
+    if (t === 'colab') { if (so(user).length !== 11) return telaEntrada('Digite o CPF com 11 números.'); user = so(user) + '@' + DOMINIO_COLAB; definirLoja(''); }
+    if (!user || !senha) return telaEntrada('Preencha todos os campos.');
+    ocupado(btn, true, 'Entrando…');
+    const { error } = await sb.auth.signInWithPassword({ email: user, password: senha });
+    if (error) { ocupado(btn, false); return telaEntrada(msgErro(error)); }
+    await posLogin(true);
+  };
+}
+
+function telaEsqueci() {
+  S.tela = 'esqueci';
+  if (S.tipoEntrada === 'colab') {
+    app.innerHTML = `<button class="link" type="button" id="bVoltar" style="align-self:flex-start">‹ Voltar</button>
+      <h1>Esqueceu a senha?</h1>
+      <div class="card amar"><p>Peça ao lojista ou gerente da sua loja: ele cria uma senha nova para você na tela Equipe.</p></div>`;
+    $('#bVoltar').onclick = () => telaEntrada();
+    return;
+  }
+  app.innerHTML = `<button class="link" type="button" id="bVoltar" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Criar nova senha</h1>
+  <p class="sub">Digite o e-mail do seu cadastro. Vamos mandar um link para você criar uma senha nova.</p>
+  <form class="card" id="fEsq" novalidate>
+    <div class="campo"><label for="esEmail">E-mail</label><input id="esEmail" type="email" autocomplete="email"></div>
+    <p class="erro" id="esErro" role="alert" hidden></p>
+    <button class="btn" type="submit" id="bEnv">Enviar link</button>
+  </form>`;
+  $('#bVoltar').onclick = () => telaEntrada();
+  $('#fEsq').onsubmit = async ev => {
+    ev.preventDefault();
+    const email = $('#esEmail').value.trim(); if (!email) return;
+    ocupado($('#bEnv'), true, 'Enviando…');
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    if (error) { ocupado($('#bEnv'), false); $('#esErro').hidden = false; $('#esErro').textContent = msgErro(error); return; }
+    app.innerHTML = `<h1>Link enviado</h1><div class="card verde"><p>Abra seu e-mail e toque em <strong>Criar nova senha</strong>. Se não chegar em 5 minutos, olhe a caixa de spam.</p></div><button class="btn sec" id="bVolt2">Voltar para a entrada</button>`;
+    $('#bVolt2').onclick = () => telaEntrada();
+  };
+}
+
+function telaNovaSenha() {
+  S.tela = 'novaSenha'; menu(null);
+  app.innerHTML = `<h1>Escolha sua nova senha</h1>
+  <form class="card" id="fNova" novalidate>
+    <div class="campo"><label for="ns1">Nova senha</label><input id="ns1" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></div>
+    <div class="campo"><label for="ns2">Repita a nova senha</label><input id="ns2" type="password" autocomplete="new-password"></div>
+    <p class="erro" id="nsErro" role="alert" hidden></p>
+    <button class="btn" type="submit" id="bNs">Salvar nova senha</button>
+  </form>`;
+  $('#fNova').onsubmit = async ev => {
+    ev.preventDefault();
+    const a = $('#ns1').value, b = $('#ns2').value, er = $('#nsErro');
+    if (a.length < 8) { er.hidden = false; er.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (a !== b) { er.hidden = false; er.textContent = 'As duas senhas não são iguais.'; return; }
+    ocupado($('#bNs'), true, 'Salvando…');
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) { ocupado($('#bNs'), false); er.hidden = false; er.textContent = msgErro(error); return; }
+    S.recuperando = false;
+    await sb.auth.signOut();
+    S.tipoEntrada = 'lojista';
+    telaEntrada('Senha alterada. Entre com a nova senha.');
+  };
+}
+
+/* ============ CADASTRO DO LOJISTA ============ */
+function telaCadastro() {
+  S.tela = 'cadastro';
+  app.innerHTML = `<button class="link" type="button" id="bVoltar" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Cadastro do lojista</h1>
+  <p class="sub">Preencha seus dados. O shopping confere e libera seu acesso. Depois você cadastra sua equipe.</p>
+  <form class="card" id="fCad" novalidate>
+    <div class="campo"><label for="cCod">Código de convite da loja</label><input id="cCod" placeholder="MSH-000000" style="text-transform:uppercase;font-weight:600;letter-spacing:1px;border-color:var(--azul)"><span class="peq">Entregue pela administração do shopping.</span></div>
+    <div class="campo"><label for="cNome">Nome completo</label><input id="cNome" autocomplete="name"></div>
+    <div class="campo"><label for="cCpf">CPF</label><input id="cCpf" inputmode="numeric" placeholder="000.000.000-00"></div>
+    <div class="campo"><label for="cCnpj">CNPJ da loja</label><input id="cCnpj" inputmode="numeric" placeholder="00.000.000/0000-00"></div>
+    <div class="campo"><label for="cCel">Celular com WhatsApp</label><input id="cCel" type="tel" inputmode="tel" placeholder="(85) 90000-0000"></div>
+    <div class="campo"><label for="cEmail">E-mail</label><input id="cEmail" type="email" autocomplete="email"></div>
+    <div class="campo"><label for="cSenha">Crie uma senha</label><input id="cSenha" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></div>
+    <div class="check"><input id="cLgpd" type="checkbox"><label for="cLgpd">Autorizo o Shopping Maranguape a usar meu nome, CPF, e-mail e celular só para liberar meu acesso e enviar lembretes do faturamento.</label></div>
+    <div class="check"><input id="cTermo" type="checkbox"><label for="cTermo">Meu acesso é pessoal e intransferível. Eu respondo por tudo o que for lançado com ele.</label></div>
+    <p class="erro" id="cErro" role="alert" hidden></p>
+    <button class="btn" type="submit" id="bCad">Enviar cadastro</button>
+  </form>`;
+  $('#bVoltar').onclick = () => telaEntrada();
+  $('#fCad').onsubmit = async ev => {
+    ev.preventDefault();
+    const er = $('#cErro'); const f = id => $(id).value.trim();
+    const dados = { codigo: f('#cCod').toUpperCase(), nome: f('#cNome'), cpf: so(f('#cCpf')), cnpj: f('#cCnpj'), celular: f('#cCel') };
+    const email = f('#cEmail'), senha = $('#cSenha').value;
+    let msg = '';
+    if (!dados.codigo || !dados.nome || !email) msg = 'Preencha código, nome e e-mail.';
+    else if (dados.cpf.length !== 11) msg = 'Digite o CPF com 11 números.';
+    else if (senha.length < 8) msg = 'A senha precisa ter pelo menos 8 caracteres.';
+    else if (!$('#cLgpd').checked || !$('#cTermo').checked) msg = 'Marque as duas autorizações para continuar.';
+    if (msg) { er.hidden = false; er.textContent = msg; return; }
+    ocupado($('#bCad'), true, 'Enviando…');
+    const { error } = await sb.auth.signUp({ email, password: senha, options: { data: dados, emailRedirectTo: location.origin + location.pathname } });
+    if (error) { ocupado($('#bCad'), false); er.hidden = false; er.textContent = msgErro(error); return; }
+    app.innerHTML = `<h1>Confirme seu e-mail</h1>
+      <div class="card amar"><p>Enviamos um link para <strong>${esc(email)}</strong>. Toque em <strong>Confirmar meu e-mail</strong> para concluir o cadastro.</p><p>Depois, o shopping confere seus dados e libera o acesso.</p></div>
+      <button class="btn sec" id="bVolt">Voltar para a entrada</button>`;
+    $('#bVolt').onclick = () => telaEntrada();
+  };
+}
+
+function telaConcluirCadastro(erro) {
+  const m = (S.user && S.user.user_metadata) || {};
+  menu(null); topo('');
+  app.innerHTML = `<h1>Concluir cadastro</h1>
+  <p class="sub">Confira os dados e envie para a administração do shopping.</p>
+  <form class="card" id="fConc" novalidate>
+    <div class="campo"><label for="kCod">Código de convite da loja</label><input id="kCod" value="${esc(m.codigo || '')}" style="text-transform:uppercase;font-weight:600"></div>
+    <div class="campo"><label for="kNome">Nome completo</label><input id="kNome" value="${esc(m.nome || '')}"></div>
+    <div class="campo"><label for="kCpf">CPF</label><input id="kCpf" inputmode="numeric" value="${esc(m.cpf || '')}"></div>
+    <div class="campo"><label for="kCnpj">CNPJ da loja</label><input id="kCnpj" value="${esc(m.cnpj || '')}"></div>
+    <div class="campo"><label for="kCel">Celular com WhatsApp</label><input id="kCel" type="tel" value="${esc(m.celular || '')}"></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <button class="btn" type="submit" id="bConc">Enviar para aprovação</button>
+    <button class="link" type="button" id="bSair">Sair</button>
+  </form>`;
+  $('#bSair').onclick = sair;
+  $('#fConc').onsubmit = async ev => { ev.preventDefault(); await enviarCadastro({ codigo: $('#kCod').value, nome: $('#kNome').value, cpf: $('#kCpf').value, cnpj: $('#kCnpj').value, celular: $('#kCel').value }); };
+}
+async function enviarCadastro(d) {
+  const { error } = await sb.rpc('cadastrar_lojista', { p_codigo: String(d.codigo || '').trim().toUpperCase(), p_nome: String(d.nome || '').trim(), p_cpf: so(d.cpf), p_cnpj: d.cnpj || '', p_celular: d.celular || '' });
+  if (error) return telaConcluirCadastro(msgErro(error));
+  await posLogin(false);
+}
+
+/* ============ DEPOIS DO LOGIN ============ */
+async function posLogin(acabouDeEntrar) {
+  app.innerHTML = '<div class="carregando">Conferindo seu acesso…</div>';
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return telaEntrada();
+  S.user = user;
+  let { data: perfil } = await sb.from('perfis').select('*').eq('id', user.id).maybeSingle();
+  if (!perfil) {
+    const m = user.user_metadata || {};
+    if (m.codigo && !S.tentouCadastro) { S.tentouCadastro = true; return enviarCadastro(m); }
+    return telaConcluirCadastro();
+  }
+  S.perfil = perfil;
+  if (perfil.status === 'pendente') {
+    menu(null); topo(esc(perfil.nome));
+    app.innerHTML = `<h1>Cadastro em análise</h1><div class="card amar"><p>O shopping está conferindo seus dados com o contrato da loja. Assim que o acesso for liberado, você recebe um aviso.</p></div><button class="btn sec" id="bSair">Sair</button>`;
+    $('#bSair').onclick = sair; return;
+  }
+  if (perfil.status === 'bloqueado') {
+    menu(null); topo('');
+    app.innerHTML = `<h1>Acesso bloqueado</h1><div class="card verm"><p>Seu acesso está bloqueado. Procure a administração do shopping.</p></div><button class="btn sec" id="bSair">Sair</button>`;
+    $('#bSair').onclick = sair; return;
+  }
+  // loja escolhida
+  if (perfil.tipo !== 'gestao') {
+    if (!lojaSel) definirLoja(perfil.loja_id);
+    const { data: ml } = await sb.rpc('minha_loja');
+    if (!ml) { await sb.auth.signOut(); definirLoja(''); return telaEntrada('Seu acesso não é desta loja. Escolha a loja certa.'); }
+  } else if (lojaSel) definirLoja('');
+  // aparelho
+  await sb.rpc('registrar_aparelho', { p_identificador: DISP, p_descricao: descAparelho() });
+  const { data: ap } = await sb.from('dispositivos').select('status,confiavel_ate').eq('perfil_id', user.id).eq('identificador', DISP).maybeSingle();
+  const liberado = ap && ap.status === 'liberado' && (!ap.confiavel_ate || new Date(ap.confiavel_ate) > new Date());
+  if (!liberado) {
+    if (perfil.tipo === 'colaborador') return telaAguardandoAparelho(ap && ap.status);
+    if (!acabouDeEntrar) { await sb.auth.signOut(); return telaEntrada('Por segurança, entre com sua senha de novo neste celular.'); }
+    return telaCodigo(true);
+  }
+  iniciarApp();
+}
+
+function telaAguardandoAparelho(status) {
+  menu(null); topo(esc(S.perfil.nome));
+  const recusado = status === 'recusado' || status === 'revogado';
+  app.innerHTML = `<div class="card ${recusado ? 'verm' : 'amar'}"><h1>${recusado ? 'Celular não liberado' : 'Aguardando liberação'}</h1>
+    <p>${recusado ? 'O lojista não liberou este celular. Fale com ele ou com a administração do shopping.' : 'Este celular é novo para o seu acesso. Pedimos ao lojista ou gerente da sua loja para liberar. Assim que ele aprovar no app, você já pode lançar.'}</p></div>
+    ${recusado ? '' : '<button class="btn" id="bJa">Já foi liberado, entrar</button>'}
+    <button class="btn sec" id="bSair">Sair</button>`;
+  if ($('#bJa')) $('#bJa').onclick = () => posLogin(false);
+  $('#bSair').onclick = sair;
+}
+
+async function telaCodigo(enviar, erro) {
+  menu(null); topo(esc(S.perfil.nome));
+  const email = S.perfil.email || S.user.email;
+  if (enviar) {
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    if (error) erro = msgErro(error);
+  }
+  const mask = email.replace(/^(.)(.*)(@.*)$/, (a, b, c, d) => b + '•••' + d);
+  app.innerHTML = `<h1>Confirme que é você</h1>
+  <p class="sub">Este celular ainda não foi usado com o seu acesso. Enviamos um código de 6 dígitos para <strong>${esc(mask)}</strong>. Ele vale por 10 minutos.</p>
+  <form class="card" id="fCod" novalidate>
+    <div class="campo"><label for="oCod">Código recebido no e-mail</label><input id="oCod" class="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000"></div>
+    <div class="check"><input id="oConf" type="checkbox" checked><label for="oConf">Confiar neste celular por 30 dias. Desmarque se o celular não for seu.</label></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <button class="btn" type="submit" id="bCod">Confirmar e entrar</button>
+    <button class="link" type="button" id="bReenv">Reenviar código</button>
+  </form>
+  <p class="sub">Não foi você que tentou entrar? Troque sua senha e avise a administração do shopping.</p>
+  <button class="link" type="button" id="bSair">Sair</button>`;
+  $('#bReenv').onclick = () => telaCodigo(true);
+  $('#bSair').onclick = sair;
+  $('#fCod').onsubmit = async ev => {
+    ev.preventDefault();
+    const token = so($('#oCod').value); if (token.length !== 6) return telaCodigo(false, 'Digite os 6 números do código.');
+    ocupado($('#bCod'), true, 'Confirmando…');
+    const { error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+    if (error) return telaCodigo(false, msgErro(error));
+    const r = await sb.rpc('confirmar_aparelho', { p_identificador: DISP, p_confiar: $('#oConf') ? $('#oConf').checked : true });
+    if (r.error) { await sb.auth.signOut(); return telaEntrada(msgErro(r.error)); }
+    iniciarApp();
+  };
+}
+
+async function sair() { await sb.auth.signOut(); S.perfil = null; S.tentouCadastro = false; telaEntrada(); }
+
+/* ============ APP ============ */
+let menuAtual = null;
+function iniciarApp() {
+  const p = S.perfil;
+  if (p.tipo === 'gestao') {
+    topo(`${esc(p.nome)}<br>Gestão${p.nivel_gestao === 'admin' ? ' · Administrador' : ''}`);
+    menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gAprov', nome: 'Aprovar', icone: 'check' }, { id: 'gLojas', nome: 'Lojas', icone: 'loja' }, { id: 'sair', nome: 'Sair', icone: 'pontos' }];
+    return irPara('gHoje');
+  }
+  menuAtual = [{ id: 'inicio', nome: 'Início', icone: 'casa' }, { id: 'lancar', nome: 'Lançar', icone: 'mais' }, { id: 'historico', nome: 'Histórico', icone: 'lista' }, { id: 'mais', nome: 'Mais', icone: 'pontos' }];
+  irPara('inicio');
+}
+function irPara(id, extra) {
+  if (id === 'sair') return sair();
+  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gAprov: 'gAprov', gLojas: 'gLojas' };
+  menu(menuAtual, mapa[id]);
+  window.scrollTo(0, 0);
+  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gAprov: telaGAprov, gLojas: telaGLojas })[id](extra);
+}
+
+/* ---- dados da loja ---- */
+async function carregarLoja() {
+  const { data: lojas, error } = await sb.from('lojas').select('id,nome_fantasia,parte,horario_limite,loja_principal_id').order('id');
+  if (error) throw error;
+  S.lojas = lojas || [];
+  const nome = S.lojas[0] ? S.lojas[0].nome_fantasia : '';
+  topo(`${esc(nome)}<br>${esc(S.perfil.nome.split(' ')[0])} · ${({ lojista: 'Lojista', gerente: 'Gerente', colaborador: 'Colaborador' })[S.perfil.tipo] || ''}`);
+}
+function inicioControle() {
+  // dias anteriores ao cadastro da pessoa/loja no app não contam como pendentes
+  const ini = new Date(S.perfil.criado_em); ini.setHours(0, 0, 0, 0);
+  const prim = hoje(); prim.setDate(1);
+  return ini > prim ? ini : prim;
+}
+async function carregarLancsMes() {
+  const prim = hoje(); prim.setDate(1);
+  const { data, error } = await sb.from('lancamentos').select('*').gte('dia', iso(prim)).order('dia', { ascending: false });
+  if (error) throw error;
+  S.lancs = data || [];
+}
+function pendentes() {
+  const out = []; const ini = inicioControle(); const ontem = somaDias(hoje(), -1);
+  for (const l of S.lojas) {
+    for (let d = new Date(ini); d <= ontem; d = somaDias(d, 1)) {
+      const k = iso(d);
+      if (!S.lancs.some(x => x.loja_id === l.id && x.dia === k)) out.push({ loja: l, dia: k });
+    }
+  }
+  return out;
+}
+function nomeParte(l) { return l.parte ? l.parte : l.nome_fantasia; }
+function limiteHoje(l) { const [h, m] = String(l.horario_limite || '12:00').split(':'); const d = new Date(); d.setHours(+h, +m, 0, 0); return d; }
+
+async function telaInicio() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  try { await carregarLoja(); await carregarLancsMes(); } catch (e) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(e))}</p></div>`; return; }
+  const ontem = iso(somaDias(hoje(), -1));
+  const pend = pendentes();
+  const total = S.lancs.reduce((a, x) => a + Number(x.valor), 0);
+  const lim = limiteHoje(S.lojas[0] || {});
+  const falta = lim - new Date();
+  const faltaTxt = falta > 0 ? `Faltam <strong>${Math.floor(falta / 3600000)}h ${Math.floor(falta % 3600000 / 60000)}min</strong>.` : '<strong>O prazo de hoje já passou.</strong>';
+  let html = `<h1>Olá, ${esc(S.perfil.nome.split(' ')[0])}</h1>`;
+  // pedidos de celular de colaboradores
+  if (['lojista', 'gerente'].includes(S.perfil.tipo)) {
+    const { data: peds } = await sb.from('dispositivos').select('id,perfil_id,descricao,criado_em').eq('status', 'pendente').neq('perfil_id', S.perfil.id);
+    if (peds && peds.length) {
+      const ids = [...new Set(peds.map(p => p.perfil_id))];
+      const { data: pp } = await sb.from('perfis').select('id,nome').in('id', ids);
+      const nm = Object.fromEntries((pp || []).map(x => [x.id, x.nome]));
+      html += peds.map(p => `<div class="card amar"><strong style="color:var(--azul)">Pedido de acesso</strong><p>${esc(nm[p.perfil_id] || 'Colaborador')} quer entrar em um celular novo (${esc(p.descricao || '')}, ${hora(p.criado_em)}). Foi ele mesmo?</p>
+        <div class="grade2"><button class="btn" data-lib="${p.id}" data-ok="1">Liberar</button><button class="btn perigo" data-lib="${p.id}" data-ok="0">Não liberar</button></div></div>`).join('');
+    }
+  }
+  for (const l of S.lojas) {
+    const lanc = S.lancs.find(x => x.loja_id === l.id && x.dia === ontem);
+    html += lanc
+      ? `<div class="card verde"><span class="sub">${S.lojas.length > 1 ? esc(nomeParte(l)) + ': ' : ''}faturamento de ontem (${br(ontem)})</span><span class="num" style="color:var(--ok)">Enviado</span><p>R$ ${brl(lanc.valor)}, enviado ${hora(lanc.lancado_em)}, ${lanc.no_prazo ? 'dentro do prazo' : 'fora do prazo'}.</p></div>`
+      : `<div class="card verm"><span class="sub">${S.lojas.length > 1 ? esc(nomeParte(l)) + ': ' : ''}faturamento de ontem (${br(ontem)})</span><span class="num" style="color:var(--verm)">Pendente</span><p>Prazo da sua loja: hoje até <strong>${String(l.horario_limite).slice(0, 5)}</strong>. ${faltaTxt}</p><button class="btn" data-lancar="${l.id}|${ontem}">Lançar faturamento de ontem</button></div>`;
+  }
+  html += `<div class="grade2"><div class="card amar"><span class="num">${pend.length}</span><span class="peq">lançamento(s) pendente(s) em ${MESES[hoje().getMonth()]}</span></div><div class="card verde"><span class="num" style="font-size:20px">R$ ${brl(total)}</span><span class="peq">lançados em ${MESES[hoje().getMonth()]}</span></div></div>`;
+  const outros = pend.filter(p => p.dia !== ontem);
+  if (outros.length) html += `<div class="card"><strong>Falta lançar também:</strong>${outros.slice(0, 10).map(p => `<button class="btn sec" data-lancar="${p.loja.id}|${p.dia}">${S.lojas.length > 1 ? esc(nomeParte(p.loja)) + ' — ' : ''}${br(p.dia)} (${SEMANA[new Date(p.dia + 'T12:00').getDay()]})</button>`).join('')}</div>`;
+  app.innerHTML = html;
+  app.querySelectorAll('[data-lancar]').forEach(b => b.onclick = () => { const [l, d] = b.dataset.lancar.split('|'); irPara('lancar', { loja: +l, dia: d }); });
+  app.querySelectorAll('[data-lib]').forEach(b => b.onclick = async () => {
+    ocupado(b, true);
+    const { error } = await sb.rpc('liberar_aparelho', { p_dispositivo: b.dataset.lib, p_liberar: b.dataset.ok === '1' });
+    if (error) alert(msgErro(error));
+    telaInicio();
+  });
+}
+
+/* ---- lançar ---- */
+let L = {};
+async function telaLancar(pre) {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  try { if (!S.lojas.length) await carregarLoja(); await carregarLancsMes(); } catch (e) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(e))}</p></div>`; return; }
+  const pend = pendentes();
+  L = { loja: (pre && pre.loja) || (pend[0] && pend[0].loja.id) || (S.lojas[0] && S.lojas[0].id), dia: (pre && pre.dia) || '', valor: '' };
+  desenharLancar(pend);
+}
+function desenharLancar(pend, erro) {
+  const ontem = iso(somaDias(hoje(), -1));
+  const pendLoja = pend.filter(p => p.loja.id === L.loja).map(p => p.dia);
+  if (!L.dia || !pendLoja.includes(L.dia) && L.dia > ontem) L.dia = pendLoja[pendLoja.length - 1] || '';
+  if (!pendLoja.length && !L.outroDia) {
+    app.innerHTML = `<h1>Lançar faturamento</h1>${S.lojas.length > 1 ? partesHtml() : ''}<div class="card verde"><p>Tudo em dia. Não há faturamento pendente${S.lojas.length > 1 ? ' para ' + esc(nomeParte(S.lojas.find(x => x.id === L.loja))) : ''} em ${MESES[hoje().getMonth()]}.</p></div><button class="link" id="bOutro">Lançar um dia de mês anterior</button>`;
+    ligarPartes(pend); $('#bOutro').onclick = () => { L.outroDia = true; desenharLancar(pend); }; return;
+  }
+  const dias = pendLoja.slice().reverse();
+  app.innerHTML = `<h1>Lançar faturamento</h1>
+  ${S.lojas.length > 1 ? partesHtml() : ''}
+  <form class="card" id="fLanc" novalidate>
+    <strong>1. Escolha o dia</strong>
+    ${L.outroDia
+      ? `<input type="date" id="lDia" max="${ontem}" value="${L.dia}">`
+      : `<div class="pills">${dias.map(d => `<button type="button" class="pill" data-dia="${d}" aria-pressed="${d === L.dia}">${br(d)} · ${SEMANA[new Date(d + 'T12:00').getDay()]}${d === ontem ? ' (ontem)' : ''}</button>`).join('')}</div>
+         <button type="button" class="link" id="bOutro" style="align-self:flex-start">Outro dia</button>`}
+    <label for="lVal">2. Digite o valor${L.dia ? ' do dia ' + br(L.dia) : ''}</label>
+    <div class="valor"><span>R$</span><input id="lVal" inputmode="decimal" placeholder="0,00" value="${esc(L.valor)}" autocomplete="off"></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <button class="btn" type="submit">Continuar</button>
+  </form>
+  <button class="link" id="bGuia">Dúvida sobre o valor? Veja como preencher</button>`;
+  ligarPartes(pend);
+  app.querySelectorAll('[data-dia]').forEach(b => b.onclick = () => { L.valor = $('#lVal').value; L.dia = b.dataset.dia; desenharLancar(pend); });
+  if ($('#bOutro')) $('#bOutro').onclick = () => { L.valor = $('#lVal').value; L.outroDia = true; desenharLancar(pend); };
+  if ($('#lDia')) $('#lDia').onchange = e => { L.dia = e.target.value; };
+  $('#bGuia').onclick = () => irPara('guia');
+  $('#fLanc').onsubmit = ev => {
+    ev.preventDefault();
+    L.valor = $('#lVal').value; if ($('#lDia')) L.dia = $('#lDia').value;
+    const v = parseValor(L.valor);
+    if (!L.dia) return desenharLancar(pend, 'Escolha o dia.');
+    if (isNaN(v) || v < 0) return desenharLancar(pend, 'Digite o valor antes de continuar. Ex.: 1.250,90');
+    if (L.dia > ontem) return desenharLancar(pend, 'Só é possível lançar dias que já terminaram.');
+    telaConfirmar(v, pend);
+  };
+}
+function partesHtml() { return `<div class="seg" style="grid-template-columns:repeat(${S.lojas.length},minmax(0,1fr))" role="group" aria-label="Parte da loja">${S.lojas.map(l => `<button type="button" data-parte="${l.id}" aria-pressed="${l.id === L.loja}">${esc(nomeParte(l))}</button>`).join('')}</div>`; }
+function ligarPartes(pend) { app.querySelectorAll('[data-parte]').forEach(b => b.onclick = () => { L.loja = +b.dataset.parte; L.dia = ''; L.outroDia = false; desenharLancar(pend); }); }
+function telaConfirmar(v, pend) {
+  const l = S.lojas.find(x => x.id === L.loja);
+  app.innerHTML = `<div class="card amar">
+    <strong style="color:var(--azul)">Confira antes de enviar</strong>
+    <p style="font-size:20px">Você está informando <strong>R$ ${brl(v)}</strong> ${S.lojas.length > 1 ? 'de <strong>' + esc(nomeParte(l)) + '</strong> ' : ''}para o dia <strong>${brAno(L.dia)}</strong>. Está certo?</p>
+    <p class="erro" style="font-size:15px">Depois de enviado, o valor não pode mais ser alterado pela loja. Só a administração do shopping pode corrigir.</p>
+  </div>
+  <p class="erro" id="cfErro" role="alert" hidden></p>
+  <button class="btn" id="bSim">Sim, enviar</button>
+  <button class="btn sec" id="bNao">Não, quero corrigir</button>`;
+  $('#bNao').onclick = () => desenharLancar(pend);
+  $('#bSim').onclick = async () => {
+    ocupado($('#bSim'), true, 'Enviando…');
+    const { data, error } = await sb.from('lancamentos').insert({ loja_id: L.loja, dia: L.dia, valor: v }).select().single();
+    if (error) { ocupado($('#bSim'), false); $('#cfErro').hidden = false; $('#cfErro').textContent = msgErro(error); return; }
+    telaComprovante(data, l);
+  };
+}
+function telaComprovante(x, l) {
+  app.innerHTML = `<div class="card verde">
+    <h1 style="color:var(--ok)">Faturamento enviado</h1>
+    <dl class="dados">
+      <dt>Loja</dt><dd>${esc(l.nome_fantasia)}${l.parte ? ' — ' + esc(l.parte) : ''}</dd>
+      <dt>Dia</dt><dd>${brAno(x.dia)}</dd>
+      <dt>Valor</dt><dd>R$ ${brl(x.valor)}</dd>
+      <dt>Enviado por</dt><dd>${esc(S.perfil.nome)}</dd>
+      <dt>Quando</dt><dd>${hora(x.lancado_em)}</dd>
+      <dt>Prazo</dt><dd class="${x.no_prazo ? 'okt' : 'atr'}">${x.no_prazo ? 'No prazo' : 'Fora do prazo'}</dd>
+      <dt>Protocolo</dt><dd>MSH-${String(x.id).padStart(6, '0')}</dd>
+    </dl>
+  </div>
+  <button class="btn" id="bIni">Voltar ao início</button>
+  <button class="btn sec" id="bOutroL">Lançar outro dia</button>`;
+  $('#bIni').onclick = () => irPara('inicio');
+  $('#bOutroL').onclick = () => irPara('lancar');
+}
+
+/* ---- histórico ---- */
+let H = { modo: 'mes', mes: '', dia: '' };
+async function telaHistorico() {
+  if (!S.lojas.length) { try { await carregarLoja(); } catch (e) {} }
+  const t = hoje();
+  if (!H.mes) H.mes = iso(t).slice(0, 7);
+  if (!H.dia) H.dia = iso(somaDias(t, -1));
+  let de, ate, titulo;
+  if (H.modo === 'dia') { de = ate = H.dia; titulo = 'Total do dia ' + brAno(H.dia); }
+  else if (H.modo === 'mes') { const [a, m] = H.mes.split('-').map(Number); de = H.mes + '-01'; ate = iso(new Date(a, m, 0)); titulo = 'Total de ' + MESES[m - 1] + ' de ' + a; }
+  else if (H.modo === 'ano') { de = t.getFullYear() + '-01-01'; ate = t.getFullYear() + '-12-31'; titulo = 'Total de ' + t.getFullYear(); }
+  else { de = '2000-01-01'; ate = '2999-12-31'; titulo = 'Total desde o início'; }
+  const meses = []; for (let i = 0; i < 12; i++) { const d = new Date(t.getFullYear(), t.getMonth() - i, 1); meses.push(iso(d).slice(0, 7)); }
+  app.innerHTML = `<h1>Histórico de faturamento</h1>
+  <div class="seg" style="grid-template-columns:repeat(4,minmax(0,1fr))" role="group" aria-label="Período">
+    ${[['dia', 'Dia'], ['mes', 'Mês'], ['ano', 'Ano'], ['tudo', 'Tudo']].map(([k, n]) => `<button type="button" data-m="${k}" aria-pressed="${H.modo === k}">${n}</button>`).join('')}
+  </div>
+  ${H.modo === 'mes' ? `<div class="campo"><label for="hMes">Escolha o mês</label><select id="hMes">${meses.map(m => { const [a, mm] = m.split('-'); return `<option value="${m}" ${m === H.mes ? 'selected' : ''}>${MESES[+mm - 1][0].toUpperCase() + MESES[+mm - 1].slice(1)} de ${a}</option>`; }).join('')}</select></div>` : ''}
+  ${H.modo === 'dia' ? `<div class="campo"><label for="hDia">Escolha o dia</label><input type="date" id="hDia" value="${H.dia}" max="${iso(t)}"></div>` : ''}
+  <div id="hRes"><div class="carregando">Carregando…</div></div>
+  <div class="aviso">Lançamentos enviados não podem ser alterados pela loja. Se houver erro, fale com a administração do shopping.</div>`;
+  app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { H.modo = b.dataset.m; telaHistorico(); });
+  if ($('#hMes')) $('#hMes').onchange = e => { H.mes = e.target.value; telaHistorico(); };
+  if ($('#hDia')) $('#hDia').onchange = e => { H.dia = e.target.value; telaHistorico(); };
+  const { data, error } = await sb.from('lancamentos').select('*').gte('dia', de).lte('dia', ate).order('dia', { ascending: false });
+  if (error) { $('#hRes').innerHTML = `<div class="card verm"><p>${esc(msgErro(error))}</p></div>`; return; }
+  const ids = [...new Set((data || []).map(x => x.lancado_por))];
+  let nomes = {};
+  if (ids.length) { const { data: pp } = await sb.from('perfis').select('id,nome').in('id', ids); nomes = Object.fromEntries((pp || []).map(x => [x.id, x.nome])); }
+  const total = (data || []).reduce((a, x) => a + Number(x.valor), 0);
+  const lojaNome = id => { const l = S.lojas.find(x => x.id === id); return l && S.lojas.length > 1 ? nomeParte(l) + ' · ' : ''; };
+  $('#hRes').innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">
+    <div class="card"><span class="peq">${titulo}</span><span class="num">R$ ${brl(total)}</span><span class="peq">${(data || []).length} lançamento(s)</span></div>
+    ${(data || []).length ? data.map(x => `<div class="item"><div class="l1"><strong>${lojaNome(x.loja_id)}${brAno(x.dia)}</strong><strong style="color:var(--azul)">R$ ${brl(x.valor)}</strong></div>
+      <div class="l2"><span>${esc(nomes[x.lancado_por] || (x.lancado_por === S.perfil.id ? S.perfil.nome : 'Equipe da loja'))}, ${hora(x.lancado_em)}</span><span class="${x.no_prazo ? 'okt' : 'atr'}">${x.no_prazo ? 'No prazo' : 'Fora do prazo'}</span></div></div>`).join('')
+      : `<div class="card cinza"><p>Nenhum faturamento lançado neste período.</p></div>`}
+  </div>`;
+}
+
+/* ---- mais / equipe / guia ---- */
+function telaMais() {
+  const resp = ['lojista', 'gerente'].includes(S.perfil.tipo);
+  app.innerHTML = `<h1>Mais opções</h1>
+  ${resp ? '<button class="card" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="mEq">Equipe da loja</button>' : ''}
+  <button class="card amar" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="mGuia">Como preencher</button>
+  <button class="card verm" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="mSair">Sair</button>
+  <p class="peq centro">Instale o app: no Android, menu ⋮ › Adicionar à tela inicial. No iPhone, Compartilhar › Adicionar à Tela de Início.</p>`;
+  if ($('#mEq')) $('#mEq').onclick = () => irPara('equipe');
+  $('#mGuia').onclick = () => irPara('guia');
+  $('#mSair').onclick = sair;
+}
+async function telaEquipe() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  const { data, error } = await sb.from('perfis').select('id,nome,tipo,status,cpf').in('tipo', ['gerente', 'colaborador']).order('nome');
+  if (error) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(error))}</p></div>`; return; }
+  const cpfM = c => c && c.length === 11 ? '***.' + c.slice(3, 6) + '.***-' + c.slice(9) : '';
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Equipe da loja</h1>
+  <p class="sub">Colaboradores entram com CPF e senha. Gerentes entram com e-mail e senha.</p>
+  ${(data || []).length ? data.map(f => `<div class="card ${f.status === 'ativo' ? 'verde' : 'cinza'}">
+     <div><strong>${esc(f.nome)}</strong><br><span class="peq">${f.tipo === 'gerente' ? 'Gerente' : 'Colaborador'} · CPF ${cpfM(f.cpf)}</span><br><span class="${f.status === 'ativo' ? 'okt' : 'atr'}" style="font-size:14px">${f.status === 'ativo' ? 'Ativo' : 'Desativado'}</span></div>
+     ${f.tipo === 'colaborador' ? `<button class="btn sec peq" data-st="${f.id}" data-novo="${f.status === 'ativo' ? 'bloqueado' : 'ativo'}">${f.status === 'ativo' ? 'Desativar' : 'Reativar'}</button>` : ''}
+   </div>`).join('') : '<div class="card cinza"><p>Nenhuma pessoa cadastrada na equipe ainda.</p></div>'}
+  <div class="aviso">O cadastro de colaboradores e gerentes pelo app chega na próxima versão.</div>`;
+  $('#bV').onclick = () => irPara('mais');
+  app.querySelectorAll('[data-st]').forEach(b => b.onclick = async () => {
+    ocupado(b, true);
+    const { error } = await sb.rpc('definir_status_colaborador', { p_colab: b.dataset.st, p_status: b.dataset.novo });
+    if (error) alert(msgErro(error));
+    telaEquipe();
+  });
+}
+function telaGuia() {
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Como preencher</h1>
+  <div class="aviso" style="border:2px dashed #B8940F;font-weight:600">Texto provisório, a validar com o contrato</div>
+  <div class="card"><strong style="color:var(--azul)">1. Feche o caixa do dia</strong><p>Some tudo o que a loja vendeu no dia: dinheiro, cartão, Pix e outros meios.</p></div>
+  <div class="card verm"><strong style="color:var(--azul)">2. Não desconte despesas</strong><p>Aluguel, salários, compras de mercadoria e contas não entram nessa conta. [Regra oficial do contrato]</p></div>
+  <div class="card amar"><strong style="color:var(--azul)">3. Lance até o horário da sua loja</strong><p>O valor de ontem deve ser lançado hoje até o horário-limite da loja. Se esquecer um dia, ele fica como pendente e você ainda pode lançar.</p></div>
+  <div class="card verde"><strong style="color:var(--azul)">4. Confira antes de enviar</strong><p>O app mostra o valor e o dia antes de enviar. Depois de enviado, só a administração do shopping pode corrigir.</p></div>
+  <div class="card sem"><strong>Exemplo</strong><p>A loja vendeu R$ 800,00 no cartão, R$ 350,00 no Pix e R$ 100,50 em dinheiro. Informe <strong>R$ 1.250,50</strong>.</p></div>`;
+  $('#bV').onclick = () => irPara('mais');
+}
+
+/* ============ GESTÃO ============ */
+async function telaGHoje() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  const ontem = iso(somaDias(hoje(), -1));
+  const [{ data: lojas, error: e1 }, { data: lancs, error: e2 }] = await Promise.all([
+    sb.from('lojas').select('id,nome_fantasia,parte,horario_limite,ativa').eq('ativa', true).order('nome_fantasia'),
+    sb.from('lancamentos').select('loja_id,valor,no_prazo,lancado_em').eq('dia', ontem)
+  ]);
+  if (e1 || e2) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(e1 || e2))}</p></div>`; return; }
+  const lanc = Object.fromEntries((lancs || []).map(x => [x.loja_id, x]));
+  const nome = l => l.nome_fantasia + (l.parte ? ' — ' + l.parte : '');
+  const feitos = lojas.filter(l => lanc[l.id]); const pend = lojas.filter(l => !lanc[l.id]);
+  const fora = feitos.filter(l => !lanc[l.id].no_prazo).length;
+  const total = (lancs || []).reduce((a, x) => a + Number(x.valor), 0);
+  const { count } = await sb.from('perfis').select('id', { count: 'exact', head: true }).eq('status', 'pendente');
+  app.innerHTML = `<h1>Faturamento de ontem (${br(ontem)})</h1>
+  <div class="grade2" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <div class="card verde"><span class="num">${feitos.length}</span><span class="peq">lançaram</span></div>
+    <div class="card verm"><span class="num">${pend.length}</span><span class="peq">pendentes</span></div>
+    <div class="card amar"><span class="num">${fora}</span><span class="peq">fora do prazo</span></div>
+  </div>
+  <div class="card sem"><span class="peq">Total lançado pelas lojas no app</span><span class="num" style="font-size:22px">R$ ${brl(total)}</span></div>
+  ${count ? `<button class="btn sec" id="bAp">${count} cadastro(s) aguardando aprovação</button>` : ''}
+  <strong>Ainda não lançaram</strong>
+  ${pend.map(l => `<div class="item" style="border-left:6px solid var(--verm)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="peq">Prazo ${String(l.horario_limite).slice(0, 5)}</span></div></div>`).join('') || '<div class="card verde"><p>Todas as lojas lançaram.</p></div>'}
+  ${feitos.length ? `<strong>Já lançaram</strong>${feitos.map(l => `<div class="item"><div class="l1"><strong>${esc(nome(l))}</strong><strong style="color:var(--azul)">R$ ${brl(lanc[l.id].valor)}</strong></div><div class="l2"><span>${hora(lanc[l.id].lancado_em)}</span><span class="${lanc[l.id].no_prazo ? 'okt' : 'atr'}">${lanc[l.id].no_prazo ? 'No prazo' : 'Fora do prazo'}</span></div></div>`).join('')}` : ''}`;
+  if ($('#bAp')) $('#bAp').onclick = () => irPara('gAprov');
+}
+async function telaGAprov() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  const admin = S.perfil.nivel_gestao === 'admin';
+  const { data: cads, error } = await sb.from('perfis').select('id,nome,cpf,email,celular,cnpj_informado,loja_id,criado_em').eq('status', 'pendente').eq('tipo', 'lojista').order('criado_em');
+  if (error) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(error))}</p></div>`; return; }
+  const { data: lojas } = await sb.from('lojas').select('id,nome_fantasia,cnpj');
+  const lj = Object.fromEntries((lojas || []).map(l => [l.id, l]));
+  const cpfF = c => c && c.length === 11 ? c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : c;
+  app.innerHTML = `<h1>Cadastros de lojistas</h1>
+  <p class="sub">Confira nome, CPF e CNPJ com o contrato de locação antes de aprovar.</p>
+  ${(cads || []).length ? cads.map(c => { const l = lj[c.loja_id] || {}; const cnpjOk = l.cnpj && so(l.cnpj) === so(c.cnpj_informado);
+    return `<div class="card amar"><strong style="font-size:19px;color:var(--azul)">${esc(c.nome)}</strong>
+      <dl class="dados"><dt>Loja</dt><dd>${esc(l.nome_fantasia || '')}</dd><dt>CPF</dt><dd>${esc(cpfF(c.cpf))}</dd><dt>E-mail</dt><dd style="word-break:break-all">${esc(c.email || '')}</dd><dt>Celular</dt><dd>${esc(c.celular || '')}</dd><dt>CNPJ informado</dt><dd>${esc(c.cnpj_informado || '')}</dd><dt>CNPJ do contrato</dt><dd>${esc(l.cnpj || 'não cadastrado')}</dd><dt>Pedido em</dt><dd>${hora(c.criado_em)}</dd></dl>
+      <span class="${cnpjOk ? 'okt' : 'atr'}" style="font-size:15px">${!l.cnpj ? 'CNPJ do contrato ainda não cadastrado: confira no contrato.' : cnpjOk ? 'CNPJ confere com o contrato.' : 'CNPJ diferente do contrato: confirme com a loja antes de aprovar.'}</span>
+      ${admin ? `<div class="grade2"><button class="btn" data-ap="${c.id}" data-st="ativo">Aprovar</button><button class="btn perigo" data-ap="${c.id}" data-st="bloqueado">Recusar</button></div>` : '<p class="peq">Só administradores podem aprovar.</p>'}</div>`; }).join('')
+    : '<div class="card verde"><p>Nenhum cadastro aguardando aprovação.</p></div>'}`;
+  app.querySelectorAll('[data-ap]').forEach(b => b.onclick = async () => {
+    if (!confirm(b.dataset.st === 'ativo' ? 'Aprovar este lojista?' : 'Recusar este cadastro?')) return;
+    ocupado(b, true);
+    const { error } = await sb.from('perfis').update({ status: b.dataset.st }).eq('id', b.dataset.ap);
+    if (error) alert(msgErro(error));
+    telaGAprov();
+  });
+}
+async function telaGLojas() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  const admin = S.perfil.nivel_gestao === 'admin';
+  const { data, error } = await sb.from('lojas').select('id,nome_fantasia,parte,luc,horario_limite,ativa,codigo_convite,loja_principal_id').order('ativa', { ascending: false }).order('nome_fantasia');
+  if (error) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(error))}</p></div>`; return; }
+  app.innerHTML = `<h1>Lojas</h1>
+  <p class="sub">Entregue o código de convite só ao responsável da loja. Ao gerar um código novo, o antigo deixa de valer.</p>
+  ${data.filter(l => !l.loja_principal_id).map(l => `<div class="card ${l.ativa ? '' : 'cinza'}">
+    <div style="display:flex;justify-content:space-between;gap:10px"><strong>${esc(l.nome_fantasia)}</strong><span class="peq">${esc(l.luc || '')} · prazo ${String(l.horario_limite).slice(0, 5)}</span></div>
+    ${l.ativa ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>Código: <strong style="font-size:19px;color:var(--azul);letter-spacing:1px">${esc(l.codigo_convite || '—')}</strong></span>${admin ? `<button class="btn sec peq" data-cod="${l.id}">Gerar novo código</button>` : ''}</div>` : '<span class="peq">Inativa (não lança faturamento)</span>'}
+  </div>`).join('')}`;
+  app.querySelectorAll('[data-cod]').forEach(b => b.onclick = async () => {
+    if (!confirm('Gerar um código novo? O código atual deixa de valer.')) return;
+    ocupado(b, true);
+    const { error } = await sb.rpc('gerar_codigo_convite', { p_loja: +b.dataset.cod });
+    if (error) alert(msgErro(error));
+    telaGLojas();
+  });
+}
+
+/* ============ INÍCIO ============ */
+let assinatura = null;
+function ouvirAuth() {
+  if (assinatura) assinatura.unsubscribe();
+  assinatura = sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') { S.recuperando = true; telaNovaSenha(); } }).data.subscription;
+}
+(async () => {
+  ouvirAuth();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hash = location.hash || '';
+  if (/type=recovery/.test(hash)) { S.recuperando = true; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (S.recuperando && session) return telaNovaSenha();
+  if (session) { if (/type=signup|type=email/.test(hash)) history.replaceState(null, '', location.pathname); return posLogin(false); }
+  telaEntrada();
+})();
+</script>
+</body>
+</html>
