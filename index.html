@@ -359,7 +359,8 @@ async function posLogin(acabouDeEntrar) {
   // aparelho
   await sb.rpc('registrar_aparelho', { p_identificador: DISP, p_descricao: descAparelho() });
   const { data: ap } = await sb.from('dispositivos').select('status,confiavel_ate').eq('perfil_id', user.id).eq('identificador', DISP).maybeSingle();
-  const liberado = ap && ap.status === 'liberado' && (!ap.confiavel_ate || new Date(ap.confiavel_ate) > new Date());
+  const { data: libOk } = await sb.rpc('aparelho_liberado');
+  const liberado = !!libOk;
   if (!liberado) {
     if (perfil.tipo === 'colaborador') return telaAguardandoAparelho(ap && ap.status);
     if (!acabouDeEntrar) { await sb.auth.signOut(); return telaEntrada('Por segurança, entre com sua senha de novo neste celular.'); }
@@ -412,12 +413,18 @@ async function telaCodigo(enviar, erro) {
   };
 }
 
-async function sair() { await sb.auth.signOut(); S.perfil = null; S.tentouCadastro = false; telaEntrada(); }
+async function sair() { const fd = document.getElementById('faixaDemo'); if (fd) fd.remove(); await sb.auth.signOut(); S.perfil = null; S.tentouCadastro = false; telaEntrada(); }
 
 /* ============ APP ============ */
 let menuAtual = null;
 function iniciarApp() {
   const p = S.perfil;
+  if (p.demonstracao && !document.getElementById('faixaDemo')) {
+    const d = document.createElement('div'); d.id = 'faixaDemo';
+    d.style.cssText = 'background:#EDC228;color:#1B1B3A;text-align:center;font-size:13px;font-weight:600;padding:4px 8px';
+    d.textContent = 'Conta de demonstração — Loja Teste';
+    document.getElementById('topo').appendChild(d);
+  }
   if (p.tipo === 'gestao') {
     topo(`${esc(p.nome)}<br>Gestão${p.nivel_gestao === 'admin' ? ' · Administrador' : ''}`);
     menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gAprov', nome: 'Aprovar', icone: 'check' }, { id: 'gLojas', nome: 'Lojas', icone: 'loja' }, { id: 'sair', nome: 'Sair', icone: 'pontos' }];
