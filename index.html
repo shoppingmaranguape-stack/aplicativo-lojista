@@ -144,6 +144,8 @@ function msgErro(e) {
   if (/duplicate key|lancamentos_loja_id_dia_key/i.test(m)) return 'Esse dia já foi lançado. Para corrigir, fale com a administração do shopping.';
   if (/User already registered/i.test(m)) return 'Este e-mail já tem cadastro. Use "Entrar" ou "Esqueci minha senha".';
   if (/Password should be/i.test(m)) return 'A senha precisa ter pelo menos 8 caracteres.';
+  if (/same.*password|different from the old/i.test(m)) return 'A nova senha precisa ser diferente da senha inicial.';
+  if (/banned/i.test(m)) return 'Acesso bloqueado temporariamente por excesso de tentativas. Tente de novo em alguns minutos.';
   return m;
 }
 function ocupado(btn, sim, txt) { if (!btn) return; if (sim) { btn.dataset.t = btn.textContent; btn.textContent = txt || 'Aguarde…'; btn.disabled = true; } else { btn.textContent = btn.dataset.t || btn.textContent; btn.disabled = false; } }
@@ -203,8 +205,48 @@ async function telaEntrada(erro) {
     if (t === 'colab') { if (so(user).length !== 11) return telaEntrada('Digite o CPF com 11 números.'); user = so(user) + '@' + DOMINIO_COLAB; definirLoja(''); }
     if (!user || !senha) return telaEntrada('Preencha todos os campos.');
     ocupado(btn, true, 'Entrando…');
-    const { error } = await sb.auth.signInWithPassword({ email: user, password: senha });
+    const r = await entrarServidor(user, senha);
+    if (r.erro) { ocupado(btn, false); return telaEntrada(r.erro); }
+    const { error } = await sb.auth.setSession(r.session);
     if (error) { ocupado(btn, false); return telaEntrada(msgErro(error)); }
+    await posLogin(true);
+  };
+}
+
+async function entrarServidor(usuario, senha) {
+  try {
+    const res = await fetch(SUPA_URL + '/functions/v1/entrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY },
+      body: JSON.stringify({ usuario, senha })
+    });
+    const j = await res.json().catch(() => ({}));
+    if (j.session) return { session: j.session };
+    return { erro: j.erro ? msgErro({ message: j.erro }) : 'Não foi possível entrar agora. Tente de novo em instantes.' };
+  } catch (e) {
+    return { erro: 'Sem conexão com o servidor. Confira a internet e tente de novo.' };
+  }
+}
+
+function telaTrocarSenhaInicial(erro) {
+  menu(null); topo(esc(S.perfil.nome));
+  app.innerHTML = `<h1>Crie a sua senha</h1>
+  <p class="sub">Você entrou com a senha inicial passada pelo lojista. Por segurança, crie agora uma senha só sua.</p>
+  <form class="card" id="fTroca" novalidate>
+    <div class="campo"><label for="tr1">Nova senha</label><input id="tr1" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"></div>
+    <div class="campo"><label for="tr2">Repita a nova senha</label><input id="tr2" type="password" autocomplete="new-password"></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <button class="btn" type="submit" id="bTr">Salvar e continuar</button>
+  </form>
+  <p class="peq">Seu acesso é pessoal e intransferível. Não passe a sua senha para ninguém.</p>`;
+  $('#fTroca').onsubmit = async ev => {
+    ev.preventDefault();
+    const a = $('#tr1').value, b = $('#tr2').value;
+    if (a.length < 8) return telaTrocarSenhaInicial('A senha precisa ter pelo menos 8 caracteres.');
+    if (a !== b) return telaTrocarSenhaInicial('As duas senhas não são iguais.');
+    ocupado($('#bTr'), true, 'Salvando…');
+    const { error } = await sb.auth.updateUser({ password: a, data: { trocar_senha: false } });
+    if (error) return telaTrocarSenhaInicial(msgErro(error));
     await posLogin(true);
   };
 }
@@ -349,6 +391,10 @@ async function posLogin(acabouDeEntrar) {
     menu(null); topo('');
     app.innerHTML = `<h1>Acesso bloqueado</h1><div class="card verm"><p>Seu acesso está bloqueado. Procure a administração do shopping.</p></div><button class="btn sec" id="bSair">Sair</button>`;
     $('#bSair').onclick = sair; return;
+  }
+  if (user.user_metadata && user.user_metadata.trocar_senha) {
+    if (!acabouDeEntrar) { await sb.auth.signOut(); return telaEntrada('Entre com a senha inicial para criar a sua senha.'); }
+    return telaTrocarSenhaInicial();
   }
   // loja escolhida
   if (perfil.tipo !== 'gestao') {
@@ -726,10 +772,23 @@ async function telaEquipe() {
   <p class="sub">Colaboradores entram com CPF e senha. Gerentes entram com e-mail e senha.</p>
   ${(data || []).length ? data.map(f => `<div class="card ${f.status === 'ativo' ? 'verde' : 'cinza'}">
      <div><strong>${esc(f.nome)}</strong><br><span class="peq">${f.tipo === 'gerente' ? 'Gerente' : 'Colaborador'} · CPF ${cpfM(f.cpf)}</span><br><span class="${f.status === 'ativo' ? 'okt' : 'atr'}" style="font-size:14px">${f.status === 'ativo' ? 'Ativo' : 'Desativado'}</span></div>
-     ${f.tipo === 'colaborador' ? `<button class="btn sec peq" data-st="${f.id}" data-novo="${f.status === 'ativo' ? 'bloqueado' : 'ativo'}">${f.status === 'ativo' ? 'Desativar' : 'Reativar'}</button>` : ''}
+     <div class="pills">
+       ${(f.tipo === 'colaborador' || S.perfil.tipo === 'lojista') && f.id !== S.perfil.id ? `<button class="btn sec peq" data-senha="${f.id}" data-nome="${esc(f.nome)}">Criar nova senha</button>` : ''}
+       ${f.tipo === 'colaborador' ? `<button class="btn sec peq" data-st="${f.id}" data-novo="${f.status === 'ativo' ? 'bloqueado' : 'ativo'}">${f.status === 'ativo' ? 'Desativar' : 'Reativar'}</button>` : ''}
+     </div>
    </div>`).join('') : '<div class="card cinza"><p>Nenhuma pessoa cadastrada na equipe ainda.</p></div>'}
-  <div class="aviso">O cadastro de colaboradores e gerentes pelo app chega na próxima versão.</div>`;
+  <button class="btn" id="bNovoMembro">Cadastrar pessoa na equipe</button>`;
   $('#bV').onclick = () => irPara('mais');
+  $('#bNovoMembro').onclick = () => telaNovoMembro();
+  app.querySelectorAll('[data-senha]').forEach(b => b.onclick = async () => {
+    const nova = prompt('Nova senha inicial para ' + b.dataset.nome + ' (mínimo de 8 caracteres). No próximo acesso, a pessoa vai criar uma senha própria. Clique em Cancelar para desistir:');
+    if (nova === null) return;
+    if (nova.length < 8) { alert('A senha precisa ter pelo menos 8 caracteres.'); return; }
+    ocupado(b, true);
+    const r = await chamarEquipe({ acao: 'nova_senha', pessoa: b.dataset.senha, senha: nova });
+    alert(r.erro ? r.erro : 'Senha alterada. Passe a nova senha inicial para ' + b.dataset.nome + '.');
+    telaEquipe();
+  });
   app.querySelectorAll('[data-st]').forEach(b => b.onclick = async () => {
     ocupado(b, true);
     const { error } = await sb.rpc('definir_status_colaborador', { p_colab: b.dataset.st, p_status: b.dataset.novo });
@@ -737,6 +796,60 @@ async function telaEquipe() {
     telaEquipe();
   });
 }
+async function chamarEquipe(corpo) {
+  try {
+    const { data, error } = await sb.functions.invoke('equipe', { body: corpo, headers: { 'x-loja': lojaSel || '', 'x-dispositivo': DISP } });
+    if (error) {
+      let msg = 'Não foi possível concluir agora. Tente de novo.';
+      try { const j = await error.context.json(); if (j && j.erro) msg = j.erro; } catch (e) {}
+      return { erro: msg };
+    }
+    return data || {};
+  } catch (e) { return { erro: 'Sem conexão com o servidor. Tente de novo.' }; }
+}
+
+function telaNovoMembro(erro, v) {
+  v = v || { funcao: 'colaborador' };
+  const lojista = S.perfil.tipo === 'lojista';
+  if (!lojista) v.funcao = 'colaborador';
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Nova pessoa na equipe</h1>
+  <form class="card" id="fMembro" novalidate>
+    ${lojista ? `<span style="font-weight:600">Função</span>
+    <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));background:var(--fundo)" role="group" aria-label="Função">
+      <button type="button" data-fn="colaborador" aria-pressed="${v.funcao === 'colaborador'}">Colaborador</button>
+      <button type="button" data-fn="gerente" aria-pressed="${v.funcao === 'gerente'}">Gerente</button>
+    </div>` : ''}
+    <p class="peq">${v.funcao === 'gerente' ? 'O gerente lança, vê o histórico e cadastra colaboradores. Entra com e-mail e senha.' : 'O colaborador lança o faturamento e vê o histórico. Entra com CPF e senha.'}</p>
+    <div class="campo"><label for="mNome">Nome completo</label><input id="mNome" value="${esc(v.nome || '')}" autocomplete="off"></div>
+    <div class="campo"><label for="mCpf">CPF</label><input id="mCpf" inputmode="numeric" placeholder="000.000.000-00" value="${esc(v.cpf || '')}" autocomplete="off"></div>
+    ${v.funcao === 'gerente' ? `<div class="campo"><label for="mEmail">E-mail do gerente</label><input id="mEmail" type="email" value="${esc(v.email || '')}" autocomplete="off"><span class="peq">O gerente recebe neste e-mail o código para confirmar a entrada em um celular novo.</span></div>` : ''}
+    <div class="campo"><label for="mSenha">Senha inicial</label><input id="mSenha" type="text" placeholder="Mínimo de 8 caracteres" autocomplete="off"><span class="peq">Passe essa senha para a pessoa. No primeiro acesso, o app pede para ela criar uma senha própria.</span></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <button class="btn" type="submit" id="bSalvarM">Salvar na equipe</button>
+  </form>`;
+  $('#bV').onclick = () => irPara('equipe');
+  const ler = () => ({ funcao: v.funcao, nome: $('#mNome').value.trim(), cpf: $('#mCpf').value, email: $('#mEmail') ? $('#mEmail').value.trim() : '', senha: $('#mSenha').value });
+  app.querySelectorAll('[data-fn]').forEach(b => b.onclick = () => { const x = ler(); x.funcao = b.dataset.fn; telaNovoMembro(null, x); });
+  $('#fMembro').onsubmit = async ev => {
+    ev.preventDefault();
+    const x = ler();
+    if (!x.nome) return telaNovoMembro('Informe o nome completo.', x);
+    if (so(x.cpf).length !== 11) return telaNovoMembro('Digite o CPF com 11 números.', x);
+    if (x.funcao === 'gerente' && !x.email) return telaNovoMembro('Informe o e-mail do gerente.', x);
+    if (x.senha.length < 8) return telaNovoMembro('A senha inicial precisa ter pelo menos 8 caracteres.', x);
+    ocupado($('#bSalvarM'), true, 'Salvando…');
+    const r = await chamarEquipe({ acao: 'criar', funcao: x.funcao, nome: x.nome, cpf: so(x.cpf), email: x.email, senha: x.senha });
+    if (r.erro) return telaNovoMembro(r.erro, x);
+    app.innerHTML = `<div class="card verde"><h1 style="color:var(--ok)">Cadastro feito</h1>
+      <p><strong>${esc(x.nome)}</strong> já pode entrar no app como <strong>${x.funcao === 'gerente' ? 'gerente' : 'colaborador'}</strong>.</p>
+      <p>${x.funcao === 'gerente' ? 'Na entrada, escolher "Lojista ou gerente", a loja, e entrar com o e-mail <strong>' + esc(x.email) + '</strong>' : 'Na entrada, escolher "Colaborador" e entrar com o CPF'} e a senha inicial que você criou.</p>
+      <p class="peq">No primeiro acesso, a pessoa cria uma senha própria. Quando ela entrar num celular novo, ${x.funcao === 'gerente' ? 'confirma com o código enviado ao e-mail dela' : 'o pedido de liberação aparece no seu Início'}.</p></div>
+      <button class="btn" id="bEq">Voltar para a equipe</button>`;
+    $('#bEq').onclick = () => irPara('equipe');
+  };
+}
+
 function telaGuia(op) {
   const voltar = (op && op.voltar) || 'mais';
   app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
@@ -784,7 +897,7 @@ function telaSobre(op) {
       + (['lojista', 'gerente'].includes(tipo) ? bloco('verde', 'Equipe da loja', 'Ative ou desative colaboradores e libere o celular novo de alguém da equipe quando ele pedir.') : '')
       + bloco('amar', 'Segurança', 'Seu acesso é pessoal e intransferível. Em um celular novo, o app pede um código enviado por e-mail' + (tipo === 'colaborador' ? ' ou a liberação do lojista' : '') + '. Depois de enviado, o lançamento não pode ser alterado pela loja: se houver erro, fale com a administração do shopping.');
   }
-  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.5 · outubro de 2026</p>`;
+  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.6 · outubro de 2026</p>`;
   app.innerHTML = html;
   $('#bV').onclick = () => irPara(voltar);
 }
