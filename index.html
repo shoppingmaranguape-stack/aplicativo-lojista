@@ -427,7 +427,7 @@ function iniciarApp() {
   }
   if (p.tipo === 'gestao') {
     topo(`${esc(p.nome)}<br>Gestão${p.nivel_gestao === 'admin' ? ' · Administrador' : ''}`);
-    menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gHist', nome: 'Histórico', icone: 'lista' }, { id: 'gAprov', nome: 'Aprovar', icone: 'check' }, { id: 'gLojas', nome: 'Lojas', icone: 'loja' }, { id: 'gMais', nome: 'Mais', icone: 'pontos' }];
+    menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gHist', nome: 'Histórico', icone: 'lista' }, { id: 'gPed', nome: 'Pedidos', icone: 'mais' }, { id: 'gAprov', nome: 'Cadastros', icone: 'check' }, { id: 'gMais', nome: 'Mais', icone: 'pontos' }];
     return irPara('gHoje');
   }
   menuAtual = [{ id: 'inicio', nome: 'Início', icone: 'casa' }, { id: 'lancar', nome: 'Lançar', icone: 'mais' }, { id: 'historico', nome: 'Histórico', icone: 'lista' }, { id: 'mais', nome: 'Mais', icone: 'pontos' }];
@@ -435,10 +435,10 @@ function iniciarApp() {
 }
 function irPara(id, extra) {
   if (id === 'sair') return sair();
-  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gHist: 'gHist', gAprov: 'gAprov', gLojas: 'gLojas', gMais: 'gMais', gGuia: 'gMais', gSobre: 'gMais', sobre: 'mais' };
+  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gHist: 'gHist', gAprov: 'gAprov', gLojas: 'gMais', gPed: 'gPed', gMais: 'gMais', gGuia: 'gMais', gSobre: 'gMais', sobre: 'mais' };
   menu(menuAtual, mapa[id]);
   window.scrollTo(0, 0);
-  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gHist: telaGHist, gAprov: telaGAprov, gLojas: telaGLojas, gMais: telaGMais, gGuia: () => telaGuia({ voltar: 'gMais' }), gSobre: () => telaSobre({ voltar: 'gMais' }), sobre: () => telaSobre({ voltar: 'mais' }) })[id](extra);
+  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gHist: telaGHist, gAprov: telaGAprov, gLojas: telaGLojas, gPed: telaGPedidos, gMais: telaGMais, gGuia: () => telaGuia({ voltar: 'gMais' }), gSobre: () => telaSobre({ voltar: 'gMais' }), sobre: () => telaSobre({ voltar: 'mais' }) })[id](extra);
 }
 
 /* ---- dados da loja ---- */
@@ -630,7 +630,7 @@ async function telaHistorico() {
   ${H.modo === 'mes' ? `<div class="campo"><label for="hMes">Escolha o mês</label><select id="hMes">${meses.map(m => { const [a, mm] = m.split('-'); return `<option value="${m}" ${m === H.mes ? 'selected' : ''}>${MESES[+mm - 1][0].toUpperCase() + MESES[+mm - 1].slice(1)} de ${a}</option>`; }).join('')}</select></div>` : ''}
   ${H.modo === 'dia' ? `<div class="campo"><label for="hDia">Escolha o dia</label><input type="date" id="hDia" value="${H.dia}" max="${iso(t)}"></div>` : ''}
   <div id="hRes"><div class="carregando">Carregando…</div></div>
-  <div class="aviso">Lançamentos enviados não podem ser alterados pela loja. Se houver erro, fale com a administração do shopping.</div>`;
+  <div class="aviso">Lançamentos enviados não podem ser alterados pela loja. Se houver erro, toque em <strong>Pedir correção</strong> no lançamento: o pedido vai para a administração do shopping.</div>`;
   app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { H.modo = b.dataset.m; telaHistorico(); });
   if ($('#hMes')) $('#hMes').onchange = e => { H.mes = e.target.value; telaHistorico(); };
   if ($('#hDia')) $('#hDia').onchange = e => { H.dia = e.target.value; telaHistorico(); };
@@ -641,12 +641,65 @@ async function telaHistorico() {
   if (ids.length) { const { data: pp } = await sb.from('perfis').select('id,nome').in('id', ids); nomes = Object.fromEntries((pp || []).map(x => [x.id, x.nome])); }
   const total = (data || []).reduce((a, x) => a + Number(x.valor), 0);
   const lojaNome = id => { const l = S.lojas.find(x => x.id === id); return l && S.lojas.length > 1 ? nomeParte(l) + ' · ' : ''; };
+  const pedidos = {};
+  const lids = (data || []).map(x => x.id);
+  if (lids.length) {
+    const { data: ps } = await sb.from('solicitacoes_correcao').select('id,lancamento_id,status,valor_pedido,resposta,solicitado_em,decidido_em').in('lancamento_id', lids).order('id', { ascending: false });
+    (ps || []).forEach(p => { (pedidos[p.lancamento_id] = pedidos[p.lancamento_id] || []).push(p); });
+  }
+  const statusPedido = x => {
+    const ps = pedidos[x.id]; if (!ps) return '';
+    const u = ps[0];
+    if (u.status === 'em_analise') return `<p class="peq" style="color:#5C4A00;font-weight:600">Correção para R$ ${brl(u.valor_pedido)} em análise pela administração.</p>`;
+    if (u.status === 'aprovada') return `<p class="peq okt">Corrigido: pedido aprovado em ${hora(u.decidido_em)}.</p>`;
+    return `<p class="peq atr">Pedido de correção recusado${u.resposta ? ': ' + esc(u.resposta) : '.'}</p>`;
+  };
+  const podePedir = x => !(pedidos[x.id] && pedidos[x.id][0].status === 'em_analise');
+  S.histLancs = Object.fromEntries((data || []).map(x => [x.id, x]));
   $('#hRes').innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">
     <div class="card"><span class="peq">${titulo}</span><span class="num">R$ ${brl(total)}</span><span class="peq">${(data || []).length} lançamento(s)</span></div>
     ${(data || []).length ? data.map(x => `<div class="item"><div class="l1"><strong>${lojaNome(x.loja_id)}${brAno(x.dia)}</strong><strong style="color:var(--azul)">R$ ${brl(x.valor)}</strong></div>
-      <div class="l2"><span>${esc(nomes[x.lancado_por] || (x.lancado_por === S.perfil.id ? S.perfil.nome : 'Equipe da loja'))}, ${hora(x.lancado_em)}</span><span class="${x.no_prazo ? 'okt' : 'atr'}">${x.no_prazo ? 'No prazo' : 'Fora do prazo'}</span></div></div>`).join('')
+      <div class="l2"><span>${esc(nomes[x.lancado_por] || (x.lancado_por === S.perfil.id ? S.perfil.nome : 'Equipe da loja'))}, ${hora(x.lancado_em)}</span><span class="${x.no_prazo ? 'okt' : 'atr'}">${x.no_prazo ? 'No prazo' : 'Fora do prazo'}</span></div>
+      ${statusPedido(x)}${podePedir(x) ? `<button class="link" data-pedir="${x.id}" style="align-self:flex-start;min-height:40px;font-size:15px">Pedir correção</button>` : ''}</div>`).join('')
       : `<div class="card cinza"><p>Nenhum faturamento lançado neste período.</p></div>`}
   </div>`;
+  $('#hRes').querySelectorAll('[data-pedir]').forEach(b => b.onclick = () => telaPedirCorrecao(S.histLancs[b.dataset.pedir]));
+}
+
+function telaPedirCorrecao(x, erro, valorDigitado, motivoDigitado) {
+  const l = S.lojas.find(y => y.id === x.loja_id);
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar ao histórico</button>
+  <h1>Pedir correção</h1>
+  <div class="card cinza"><dl class="dados">
+    <dt>Loja</dt><dd>${esc(l ? l.nome_fantasia + (l.parte ? ' — ' + l.parte : '') : '')}</dd>
+    <dt>Dia</dt><dd>${brAno(x.dia)}</dd>
+    <dt>Valor lançado</dt><dd>R$ ${brl(x.valor)}</dd>
+    <dt>Protocolo</dt><dd>MSH-${String(x.id).padStart(6, '0')}</dd></dl></div>
+  <form class="card" id="fPed" novalidate>
+    <label for="pVal">Valor correto</label>
+    <div class="valor"><span>R$</span><input id="pVal" inputmode="decimal" placeholder="0,00" value="${esc(valorDigitado || '')}" autocomplete="off"></div>
+    <div class="campo"><label for="pMot">Motivo da correção</label>
+      <textarea id="pMot" rows="3" style="font:inherit;font-size:17px;border:2px solid var(--borda);border-radius:12px;padding:12px 14px;width:100%;resize:vertical" placeholder="Ex.: digitei o valor errado; faltou somar as vendas no Pix">${esc(motivoDigitado || '')}</textarea></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <p class="peq">O pedido vai para a administração do shopping. O valor só muda se for aprovado, e tudo fica registrado.</p>
+    <button class="btn" type="submit" id="bPed">Enviar pedido</button>
+  </form>`;
+  $('#bV').onclick = () => irPara('historico');
+  $('#fPed').onsubmit = async ev => {
+    ev.preventDefault();
+    const vs = $('#pVal').value, mot = $('#pMot').value.trim(), v = parseValor(vs);
+    if (isNaN(v) || v < 0) return telaPedirCorrecao(x, 'Digite o valor correto. Ex.: 1.250,90', vs, mot);
+    if (Math.abs(v - Number(x.valor)) < 0.005) return telaPedirCorrecao(x, 'O valor correto é igual ao valor já lançado.', vs, mot);
+    if (!mot) return telaPedirCorrecao(x, 'Informe o motivo da correção.', vs, mot);
+    if (!confirm(`Pedir a correção de R$ ${brl(x.valor)} para R$ ${brl(v)} no dia ${brAno(x.dia)}?`)) return;
+    ocupado($('#bPed'), true, 'Enviando…');
+    const { error } = await sb.rpc('solicitar_correcao', { p_lancamento: x.id, p_valor: v, p_motivo: mot });
+    if (error) return telaPedirCorrecao(x, msgErro(error), vs, mot);
+    app.innerHTML = `<div class="card verde"><h1 style="color:var(--ok)">Pedido enviado</h1>
+      <p>Seu pedido de correção do dia <strong>${brAno(x.dia)}</strong> para <strong>R$ ${brl(v)}</strong> foi enviado à administração do shopping. Acompanhe a resposta no Histórico.</p></div>
+      <button class="btn" id="bH">Voltar ao histórico</button>`;
+    $('#bH').onclick = () => irPara('historico');
+  };
 }
 
 /* ---- mais / equipe / guia ---- */
@@ -699,10 +752,12 @@ function telaGuia(op) {
 
 function telaGMais() {
   app.innerHTML = `<h1>Mais opções</h1>
+  <button class="card" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmLojas">Lojas e códigos de convite</button>
   <button class="card amar" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmGuia">Como preencher<br><span class="peq" style="font-weight:400">O guia que o lojista e o colaborador veem</span></button>
   <button class="card verde" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmSobre">Sobre o aplicativo</button>
   <button class="card verm" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmSair">Sair</button>
   <p class="peq centro">Instale o app: no Android, menu ⋮ › Adicionar à tela inicial. No iPhone, Compartilhar › Adicionar à Tela de Início.</p>`;
+  $('#gmLojas').onclick = () => irPara('gLojas');
   $('#gmGuia').onclick = () => irPara('gGuia');
   $('#gmSobre').onclick = () => irPara('gSobre');
   $('#gmSair').onclick = sair;
@@ -717,18 +772,19 @@ function telaSobre(op) {
   if (tipo === 'gestao') {
     html += bloco('', 'Hoje', 'Mostra quais lojas já lançaram o faturamento de hoje, quais ainda vão lançar e quais ficaram sem lançar ontem.')
       + bloco('', 'Histórico', 'Consulta os lançamentos de todas as lojas por dia, mês, ano ou desde o início, com filtro por loja e por prazo. Também permite baixar os dados em planilha.')
-      + bloco('amar', 'Aprovar', 'Lista os cadastros de lojistas aguardando liberação, com a conferência do CNPJ informado com o do contrato.' + (S.perfil.nivel_gestao === 'admin' ? '' : ' Só administradores podem aprovar ou recusar.'))
+      + bloco('amar', 'Pedidos', 'Recebe os pedidos de correção feitos pelas lojas, com o valor lançado, o valor pedido e o motivo. O administrador aprova (o valor é corrigido e reenviado à planilha) ou recusa, informando o motivo. Tudo fica registrado.')
+      + bloco('amar', 'Cadastros', 'Lista os cadastros de lojistas aguardando liberação, com a conferência do CNPJ informado com o do contrato.' + (S.perfil.nivel_gestao === 'admin' ? '' : ' Só administradores podem aprovar ou recusar.'))
       + bloco('verde', 'Lojas', 'Mostra as lojas, o prazo de cada uma e o código de convite que o responsável usa para se cadastrar.' + (S.perfil.nivel_gestao === 'admin' ? ' Administradores podem gerar um código novo.' : ''))
       + bloco('verm', 'Segurança', 'Cada loja vê só os próprios dados. Lançamentos enviados não podem ser alterados nem apagados pela loja: apenas o administrador do shopping corrige, sempre com motivo registrado.')
       + `<p class="peq">Seu acesso: ${S.perfil.nivel_gestao === 'admin' ? 'administrador (consulta, aprova, bloqueia e corrige)' : 'só consulta (vê todas as lojas, sem alterar nada)'}.</p>`;
   } else {
     html += bloco('', 'Lançar o faturamento do dia', 'Depois de fechar o caixa, informe quanto a loja vendeu no dia, até 23h59. O app pede confirmação antes de enviar e mostra um comprovante.')
       + bloco('verm', 'Avisos de dias sem lançamento', 'Se algum dia ficar sem lançamento, o app avisa no Início e permite lançar depois. Nesse caso, o lançamento fica registrado como fora do prazo.')
-      + bloco('', 'Histórico', 'Consulte tudo o que a sua loja já lançou, por dia, mês, ano ou desde o início, com quem lançou e quando.')
+      + bloco('', 'Histórico e correções', 'Consulte tudo o que a sua loja já lançou, por dia, mês, ano ou desde o início. Se algum valor estiver errado, toque em Pedir correção: o pedido vai para a administração do shopping, e você acompanha a resposta ali mesmo.')
       + (['lojista', 'gerente'].includes(tipo) ? bloco('verde', 'Equipe da loja', 'Ative ou desative colaboradores e libere o celular novo de alguém da equipe quando ele pedir.') : '')
       + bloco('amar', 'Segurança', 'Seu acesso é pessoal e intransferível. Em um celular novo, o app pede um código enviado por e-mail' + (tipo === 'colaborador' ? ' ou a liberação do lojista' : '') + '. Depois de enviado, o lançamento não pode ser alterado pela loja: se houver erro, fale com a administração do shopping.');
   }
-  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.3 · outubro de 2026</p>`;
+  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.4 · outubro de 2026</p>`;
   app.innerHTML = html;
   $('#bV').onclick = () => irPara(voltar);
 }
@@ -748,6 +804,7 @@ async function telaGHoje() {
   const feitos = lojas.filter(l => lHoje[l.id]); const aLancar = lojas.filter(l => !lHoje[l.id]); const semOntem = lojas.filter(l => !lOntem[l.id]);
   const total = feitos.reduce((a, l) => a + Number(lHoje[l.id].valor), 0);
   const { count } = await sb.from('perfis').select('id', { count: 'exact', head: true }).eq('status', 'pendente');
+  const { count: nPed } = await sb.from('solicitacoes_correcao').select('id', { count: 'exact', head: true }).eq('status', 'em_analise');
   app.innerHTML = `<h1>Faturamento de hoje (${br(hojeS)})</h1>
   <div class="grade2" style="grid-template-columns:repeat(3,minmax(0,1fr))">
     <div class="card verde"><span class="num">${feitos.length}</span><span class="peq">já lançaram hoje</span></div>
@@ -756,10 +813,12 @@ async function telaGHoje() {
   </div>
   <div class="card sem"><span class="peq">Total lançado hoje pelas lojas no app</span><span class="num" style="font-size:22px">R$ ${brl(total)}</span><span class="peq">Prazo: até 23h59 do mesmo dia</span></div>
   ${count ? `<button class="btn sec" id="bAp">${count} cadastro(s) aguardando aprovação</button>` : ''}
+  ${nPed ? `<button class="btn" id="bPedH">${nPed} pedido(s) de correção aguardando</button>` : ''}
   ${semOntem.length ? `<strong>Ficaram sem lançar ontem (${br(ontemS)})</strong>${semOntem.map(l => `<div class="item" style="border-left:6px solid var(--verm)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="atr" style="font-size:14px">Sem lançamento</span></div></div>`).join('')}` : `<div class="card verde"><p>Todas as lojas lançaram ontem (${br(ontemS)}).</p></div>`}
   ${feitos.length ? `<strong>Já lançaram hoje</strong>${feitos.map(l => `<div class="item"><div class="l1"><strong>${esc(nome(l))}</strong><strong style="color:var(--azul)">R$ ${brl(lHoje[l.id].valor)}</strong></div><div class="l2"><span>${hora(lHoje[l.id].lancado_em)}</span><span class="okt">No prazo</span></div></div>`).join('')}` : ''}
   ${aLancar.length ? `<strong>Ainda vão lançar hoje</strong>${aLancar.map(l => `<div class="item" style="border-left:6px solid var(--amar)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="peq">até ${fmtLim(l)}</span></div></div>`).join('')}` : ''}`;
   if ($('#bAp')) $('#bAp').onclick = () => irPara('gAprov');
+  if ($('#bPedH')) $('#bPedH').onclick = () => irPara('gPed');
   await blocoPlanilha();
 }
 async function blocoPlanilha() {
@@ -876,6 +935,61 @@ async function telaGHist() {
     a.download = 'historico-lojas-' + (GH.modo === 'mes' ? GH.mes : GH.modo === 'dia' ? GH.dia : GH.modo) + '.csv';
     document.body.appendChild(a); a.click(); a.remove();
   };
+}
+let GP = { filtro: 'em_analise' };
+async function telaGPedidos() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  const admin = S.perfil.nivel_gestao === 'admin';
+  let q = sb.from('solicitacoes_correcao').select('*').order('solicitado_em', { ascending: false }).limit(200);
+  if (GP.filtro === 'em_analise') q = q.eq('status', 'em_analise');
+  const { data: peds, error } = await q;
+  if (error) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(error))}</p></div>`; return; }
+  const lista = peds || [];
+  const lancIds = [...new Set(lista.map(p => p.lancamento_id))];
+  const pessoas = [...new Set(lista.flatMap(p => [p.solicitado_por, p.decidido_por]).filter(Boolean))];
+  const [{ data: lojas }, { data: pp }, { data: todos }, { data: alts }] = await Promise.all([
+    sb.from('lojas').select('id,nome_fantasia,parte'),
+    pessoas.length ? sb.from('perfis').select('id,nome').in('id', pessoas) : Promise.resolve({ data: [] }),
+    lancIds.length ? sb.from('solicitacoes_correcao').select('id,lancamento_id,loja_id').in('lancamento_id', lancIds) : Promise.resolve({ data: [] }),
+    lancIds.length ? sb.from('lancamentos_alteracoes').select('lancamento_id').in('lancamento_id', lancIds) : Promise.resolve({ data: [] })
+  ]);
+  const lj = Object.fromEntries((lojas || []).map(l => [l.id, l.nome_fantasia + (l.parte ? ' — ' + l.parte : '')]));
+  const nm = Object.fromEntries((pp || []).map(x => [x.id, x.nome]));
+  const nPedLanc = {}; (todos || []).forEach(t => nPedLanc[t.lancamento_id] = (nPedLanc[t.lancamento_id] || 0) + 1);
+  const nAlt = {}; (alts || []).forEach(a => nAlt[a.lancamento_id] = (nAlt[a.lancamento_id] || 0) + 1);
+  const ordem = {}; (todos || []).slice().sort((a, b) => a.id - b.id).forEach(t => { ordem[t.lancamento_id] = ordem[t.lancamento_id] || []; ordem[t.lancamento_id].push(t.id); });
+  const rotulo = { em_analise: 'Em análise', aprovada: 'Aprovado', recusada: 'Recusado' };
+  const cor = { em_analise: 'amar', aprovada: 'verde', recusada: 'cinza' };
+  app.innerHTML = `<h1>Pedidos de correção</h1>
+  <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group" aria-label="Filtro">
+    <button type="button" data-f="em_analise" aria-pressed="${GP.filtro === 'em_analise'}">Em análise</button>
+    <button type="button" data-f="todos" aria-pressed="${GP.filtro === 'todos'}">Todos</button>
+  </div>
+  ${lista.length ? lista.map(p => `<div class="card ${cor[p.status]}">
+    <div style="display:flex;justify-content:space-between;gap:10px"><strong style="color:var(--azul)">${esc(lj[p.loja_id] || '')}</strong><span class="peq">Pedido nº ${p.id}</span></div>
+    <dl class="dados">
+      <dt>Dia</dt><dd>${brAno(p.dia)}</dd>
+      <dt>Valor lançado</dt><dd>R$ ${brl(p.valor_atual)}</dd>
+      <dt>Valor pedido</dt><dd>R$ ${brl(p.valor_pedido)} <span class="peq">(${p.valor_pedido >= p.valor_atual ? '+' : '−'} R$ ${brl(Math.abs(p.valor_pedido - p.valor_atual))})</span></dd>
+      <dt>Motivo</dt><dd style="font-weight:400">${esc(p.motivo)}</dd>
+      <dt>Pedido por</dt><dd>${esc(nm[p.solicitado_por] || '')}, ${hora(p.solicitado_em)}</dd>
+      <dt>Situação</dt><dd>${rotulo[p.status]}${p.decidido_em ? ' por ' + esc(nm[p.decidido_por] || '') + ', ' + hora(p.decidido_em) : ''}</dd>
+      ${p.resposta ? `<dt>Resposta</dt><dd style="font-weight:400">${esc(p.resposta)}</dd>` : ''}
+    </dl>
+    <p class="peq">${(ordem[p.lancamento_id] || []).indexOf(p.id) + 1}º pedido para este lançamento (total: ${nPedLanc[p.lancamento_id] || 1}) · valor já alterado ${nAlt[p.lancamento_id] || 0} vez(es)</p>
+    ${p.status === 'em_analise' ? (admin ? `<div class="grade2"><button class="btn" data-dec="${p.id}" data-ok="1">Aprovar</button><button class="btn perigo" data-dec="${p.id}" data-ok="0">Recusar</button></div>` : '<p class="peq">Só administradores podem aprovar ou recusar.</p>') : ''}
+  </div>`).join('') : `<div class="card verde"><p>${GP.filtro === 'em_analise' ? 'Nenhum pedido aguardando análise.' : 'Nenhum pedido de correção registrado.'}</p></div>`}`;
+  app.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { GP.filtro = b.dataset.f; telaGPedidos(); });
+  app.querySelectorAll('[data-dec]').forEach(b => b.onclick = async () => {
+    const aprovar = b.dataset.ok === '1';
+    let resp = '';
+    if (aprovar) { if (!confirm('Aprovar o pedido? O valor será corrigido e reenviado para a planilha.')) return; resp = prompt('Observação (opcional):') || ''; }
+    else { resp = prompt('Motivo da recusa (obrigatório):') || ''; if (!resp.trim()) { alert('Informe o motivo da recusa.'); return; } }
+    ocupado(b, true);
+    const { error } = await sb.rpc('decidir_correcao', { p_pedido: +b.dataset.dec, p_aprovar: aprovar, p_resposta: resp });
+    if (error) alert(msgErro(error));
+    telaGPedidos();
+  });
 }
 async function telaGAprov() {
   app.innerHTML = '<div class="carregando">Carregando…</div>';
