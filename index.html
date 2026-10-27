@@ -184,8 +184,8 @@ async function telaEntrada(erro) {
   <form class="card" id="fEntrar" novalidate>
     ${t === 'lojista' ? `<div class="campo"><label for="eLoja">Sua loja</label><select id="eLoja"><option value="">Escolha a loja</option>${lojas.map(l => `<option value="${l.id}" ${String(l.id) === lojaSel ? 'selected' : ''}>${esc(l.nome_fantasia)}</option>`).join('')}</select></div>` : ''}
     ${t === 'colab'
-      ? `<div class="campo"><label for="eUser">CPF</label><input id="eUser" inputmode="numeric" autocomplete="username" placeholder="000.000.000-00"></div>`
-      : `<div class="campo"><label for="eUser">E-mail</label><input id="eUser" type="email" autocomplete="username" placeholder="seuemail@exemplo.com"></div>`}
+      ? `<div class="campo"><label for="eUser">CPF</label><input id="eUser" inputmode="numeric" autocomplete="username" placeholder="000.000.000-00" value="${esc(erro ? (S.ultimoUser || '') : '')}"></div>`
+      : `<div class="campo"><label for="eUser">E-mail</label><input id="eUser" type="email" autocomplete="username" placeholder="seuemail@exemplo.com" value="${esc(erro ? (S.ultimoUser || '') : '')}"></div>`}
     <div class="campo"><label for="eSenha">Senha</label><input id="eSenha" type="password" autocomplete="current-password"></div>
     ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
     <button class="btn" id="bEntrar" type="submit">Entrar</button>
@@ -193,13 +193,15 @@ async function telaEntrada(erro) {
   </form>
   ${t === 'lojista' ? `<div class="centro" style="display:flex;flex-direction:column;gap:8px"><span class="sub">É lojista e ainda não tem acesso?</span><button class="btn sec" type="button" id="bCadastro">Fazer meu cadastro</button></div>` : ''}
   ${t === 'colab' ? `<p class="sub centro">Colaborador não faz cadastro: o lojista da sua loja cadastra seu CPF e passa a senha inicial.</p>` : ''}`;
-  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tipoEntrada = b.dataset.t; telaEntrada(); });
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.tipoEntrada = b.dataset.t; S.ultimoUser = ''; telaEntrada(); });
+  if (erro && $('#eUser').value) setTimeout(() => $('#eSenha').focus(), 50);
   $('#bEsqueci').onclick = telaEsqueci;
   if ($('#bCadastro')) $('#bCadastro').onclick = telaCadastro;
   $('#fEntrar').onsubmit = async ev => {
     ev.preventDefault();
     const btn = $('#bEntrar');
     let user = $('#eUser').value.trim(); const senha = $('#eSenha').value;
+    S.ultimoUser = user;
     if (t === 'lojista') { const l = $('#eLoja').value; if (!l) return telaEntrada('Escolha a sua loja.'); definirLoja(l); }
     if (t === 'gestao') definirLoja('');
     if (t === 'colab') { if (so(user).length !== 11) return telaEntrada('Digite o CPF com 11 números.'); user = so(user) + '@' + DOMINIO_COLAB; definirLoja(''); }
@@ -403,7 +405,7 @@ async function posLogin(acabouDeEntrar) {
     if (!ml) { await sb.auth.signOut(); definirLoja(''); return telaEntrada('Seu acesso não é desta loja. Escolha a loja certa.'); }
   } else if (lojaSel) definirLoja('');
   // aparelho
-  await sb.rpc('registrar_aparelho', { p_identificador: DISP, p_descricao: descAparelho() });
+  if (!perfil.demonstracao) await sb.rpc('registrar_aparelho', { p_identificador: DISP, p_descricao: descAparelho() });
   const { data: ap } = await sb.from('dispositivos').select('status,confiavel_ate').eq('perfil_id', user.id).eq('identificador', DISP).maybeSingle();
   const { data: libOk } = await sb.rpc('aparelho_liberado');
   const liberado = !!libOk;
@@ -546,9 +548,10 @@ async function telaInicio() {
     const { data: peds } = await sb.from('dispositivos').select('id,perfil_id,descricao,criado_em').eq('status', 'pendente').neq('perfil_id', S.perfil.id);
     if (peds && peds.length) {
       const ids = [...new Set(peds.map(p => p.perfil_id))];
-      const { data: pp } = await sb.from('perfis').select('id,nome').in('id', ids);
+      const { data: pp } = await sb.from('perfis').select('id,nome,demonstracao').in('id', ids);
       const nm = Object.fromEntries((pp || []).map(x => [x.id, x.nome]));
-      html += peds.map(p => `<div class="card amar"><strong style="color:var(--azul)">Pedido de acesso</strong><p>${esc(nm[p.perfil_id] || 'Colaborador')} quer entrar em um celular novo (${esc(p.descricao || '')}, ${hora(p.criado_em)}). Foi ele mesmo?</p>
+      const demo = new Set((pp || []).filter(x => x.demonstracao).map(x => x.id));
+      html += peds.filter(p => !demo.has(p.perfil_id)).map(p => `<div class="card amar"><strong style="color:var(--azul)">Pedido de acesso</strong><p>${esc(nm[p.perfil_id] || 'Colaborador')} quer entrar em um celular novo (${esc(p.descricao || '')}, ${hora(p.criado_em)}). Foi ele mesmo?</p>
         <div class="grade2"><button class="btn" data-lib="${p.id}" data-ok="1">Liberar</button><button class="btn perigo" data-lib="${p.id}" data-ok="0">Não liberar</button></div></div>`).join('');
     }
   }
@@ -897,7 +900,7 @@ function telaSobre(op) {
       + (['lojista', 'gerente'].includes(tipo) ? bloco('verde', 'Equipe da loja', 'Ative ou desative colaboradores e libere o celular novo de alguém da equipe quando ele pedir.') : '')
       + bloco('amar', 'Segurança', 'Seu acesso é pessoal e intransferível. Em um celular novo, o app pede um código enviado por e-mail' + (tipo === 'colaborador' ? ' ou a liberação do lojista' : '') + '. Depois de enviado, o lançamento não pode ser alterado pela loja: se houver erro, fale com a administração do shopping.');
   }
-  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.6 · outubro de 2026</p>`;
+  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.7 · outubro de 2026</p>`;
   app.innerHTML = html;
   $('#bV').onclick = () => irPara(voltar);
 }
