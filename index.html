@@ -427,7 +427,7 @@ function iniciarApp() {
   }
   if (p.tipo === 'gestao') {
     topo(`${esc(p.nome)}<br>Gestão${p.nivel_gestao === 'admin' ? ' · Administrador' : ''}`);
-    menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gHist', nome: 'Histórico', icone: 'lista' }, { id: 'gAprov', nome: 'Aprovar', icone: 'check' }, { id: 'gLojas', nome: 'Lojas', icone: 'loja' }, { id: 'sair', nome: 'Sair', icone: 'pontos' }];
+    menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gHist', nome: 'Histórico', icone: 'lista' }, { id: 'gAprov', nome: 'Aprovar', icone: 'check' }, { id: 'gLojas', nome: 'Lojas', icone: 'loja' }, { id: 'gMais', nome: 'Mais', icone: 'pontos' }];
     return irPara('gHoje');
   }
   menuAtual = [{ id: 'inicio', nome: 'Início', icone: 'casa' }, { id: 'lancar', nome: 'Lançar', icone: 'mais' }, { id: 'historico', nome: 'Histórico', icone: 'lista' }, { id: 'mais', nome: 'Mais', icone: 'pontos' }];
@@ -435,10 +435,10 @@ function iniciarApp() {
 }
 function irPara(id, extra) {
   if (id === 'sair') return sair();
-  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gHist: 'gHist', gAprov: 'gAprov', gLojas: 'gLojas' };
+  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gHist: 'gHist', gAprov: 'gAprov', gLojas: 'gLojas', gMais: 'gMais', gGuia: 'gMais', gSobre: 'gMais', sobre: 'mais' };
   menu(menuAtual, mapa[id]);
   window.scrollTo(0, 0);
-  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gHist: telaGHist, gAprov: telaGAprov, gLojas: telaGLojas })[id](extra);
+  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gHist: telaGHist, gAprov: telaGAprov, gLojas: telaGLojas, gMais: telaGMais, gGuia: () => telaGuia({ voltar: 'gMais' }), gSobre: () => telaSobre({ voltar: 'gMais' }), sobre: () => telaSobre({ voltar: 'mais' }) })[id](extra);
 }
 
 /* ---- dados da loja ---- */
@@ -655,10 +655,12 @@ function telaMais() {
   app.innerHTML = `<h1>Mais opções</h1>
   ${resp ? '<button class="card" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="mEq">Equipe da loja</button>' : ''}
   <button class="card amar" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="mGuia">Como preencher</button>
+  <button class="card verde" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="mSobre">Sobre o aplicativo</button>
   <button class="card verm" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="mSair">Sair</button>
   <p class="peq centro">Instale o app: no Android, menu ⋮ › Adicionar à tela inicial. No iPhone, Compartilhar › Adicionar à Tela de Início.</p>`;
   if ($('#mEq')) $('#mEq').onclick = () => irPara('equipe');
   $('#mGuia').onclick = () => irPara('guia');
+  $('#mSobre').onclick = () => irPara('sobre');
   $('#mSair').onclick = sair;
 }
 async function telaEquipe() {
@@ -682,7 +684,8 @@ async function telaEquipe() {
     telaEquipe();
   });
 }
-function telaGuia() {
+function telaGuia(op) {
+  const voltar = (op && op.voltar) || 'mais';
   app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
   <h1>Como preencher</h1>
   <div class="aviso" style="border:2px dashed #B8940F;font-weight:600">Texto provisório, a validar com o contrato</div>
@@ -691,7 +694,43 @@ function telaGuia() {
   <div class="card amar"><strong style="color:var(--azul)">3. Lance no mesmo dia</strong><p>Depois de fechar o caixa, lance o faturamento do dia até 23h59. Se esquecer, no dia seguinte o app avisa e você ainda pode lançar, mas fica registrado como fora do prazo.</p></div>
   <div class="card verde"><strong style="color:var(--azul)">4. Confira antes de enviar</strong><p>O app mostra o valor e o dia antes de enviar. Depois de enviado, só a administração do shopping pode corrigir.</p></div>
   <div class="card sem"><strong>Exemplo</strong><p>A loja vendeu R$ 800,00 no cartão, R$ 350,00 no Pix e R$ 100,50 em dinheiro. Informe <strong>R$ 1.250,50</strong>.</p></div>`;
-  $('#bV').onclick = () => irPara('mais');
+  $('#bV').onclick = () => irPara(voltar);
+}
+
+function telaGMais() {
+  app.innerHTML = `<h1>Mais opções</h1>
+  <button class="card amar" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmGuia">Como preencher<br><span class="peq" style="font-weight:400">O guia que o lojista e o colaborador veem</span></button>
+  <button class="card verde" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmSobre">Sobre o aplicativo</button>
+  <button class="card verm" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmSair">Sair</button>
+  <p class="peq centro">Instale o app: no Android, menu ⋮ › Adicionar à tela inicial. No iPhone, Compartilhar › Adicionar à Tela de Início.</p>`;
+  $('#gmGuia').onclick = () => irPara('gGuia');
+  $('#gmSobre').onclick = () => irPara('gSobre');
+  $('#gmSair').onclick = sair;
+}
+function telaSobre(op) {
+  const voltar = (op && op.voltar) || 'mais';
+  const tipo = S.perfil.tipo;
+  const bloco = (cor, tit, txt) => `<div class="card ${cor}"><strong style="color:var(--azul)">${tit}</strong><p>${txt}</p></div>`;
+  let html = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Sobre o aplicativo</h1>
+  <p class="sub">O Aplicativo Lojista é o canal do Maranguape Shopping Mall para o envio do faturamento diário das lojas.</p>`;
+  if (tipo === 'gestao') {
+    html += bloco('', 'Hoje', 'Mostra quais lojas já lançaram o faturamento de hoje, quais ainda vão lançar e quais ficaram sem lançar ontem.')
+      + bloco('', 'Histórico', 'Consulta os lançamentos de todas as lojas por dia, mês, ano ou desde o início, com filtro por loja e por prazo. Também permite baixar os dados em planilha.')
+      + bloco('amar', 'Aprovar', 'Lista os cadastros de lojistas aguardando liberação, com a conferência do CNPJ informado com o do contrato.' + (S.perfil.nivel_gestao === 'admin' ? '' : ' Só administradores podem aprovar ou recusar.'))
+      + bloco('verde', 'Lojas', 'Mostra as lojas, o prazo de cada uma e o código de convite que o responsável usa para se cadastrar.' + (S.perfil.nivel_gestao === 'admin' ? ' Administradores podem gerar um código novo.' : ''))
+      + bloco('verm', 'Segurança', 'Cada loja vê só os próprios dados. Lançamentos enviados não podem ser alterados nem apagados pela loja: apenas o administrador do shopping corrige, sempre com motivo registrado.')
+      + `<p class="peq">Seu acesso: ${S.perfil.nivel_gestao === 'admin' ? 'administrador (consulta, aprova, bloqueia e corrige)' : 'só consulta (vê todas as lojas, sem alterar nada)'}.</p>`;
+  } else {
+    html += bloco('', 'Lançar o faturamento do dia', 'Depois de fechar o caixa, informe quanto a loja vendeu no dia, até 23h59. O app pede confirmação antes de enviar e mostra um comprovante.')
+      + bloco('verm', 'Avisos de dias sem lançamento', 'Se algum dia ficar sem lançamento, o app avisa no Início e permite lançar depois. Nesse caso, o lançamento fica registrado como fora do prazo.')
+      + bloco('', 'Histórico', 'Consulte tudo o que a sua loja já lançou, por dia, mês, ano ou desde o início, com quem lançou e quando.')
+      + (['lojista', 'gerente'].includes(tipo) ? bloco('verde', 'Equipe da loja', 'Ative ou desative colaboradores e libere o celular novo de alguém da equipe quando ele pedir.') : '')
+      + bloco('amar', 'Segurança', 'Seu acesso é pessoal e intransferível. Em um celular novo, o app pede um código enviado por e-mail' + (tipo === 'colaborador' ? ' ou a liberação do lojista' : '') + '. Depois de enviado, o lançamento não pode ser alterado pela loja: se houver erro, fale com a administração do shopping.');
+  }
+  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.2 · outubro de 2026</p>`;
+  app.innerHTML = html;
+  $('#bV').onclick = () => irPara(voltar);
 }
 
 /* ============ GESTÃO ============ */
