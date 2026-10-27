@@ -728,7 +728,7 @@ function telaSobre(op) {
       + (['lojista', 'gerente'].includes(tipo) ? bloco('verde', 'Equipe da loja', 'Ative ou desative colaboradores e libere o celular novo de alguém da equipe quando ele pedir.') : '')
       + bloco('amar', 'Segurança', 'Seu acesso é pessoal e intransferível. Em um celular novo, o app pede um código enviado por e-mail' + (tipo === 'colaborador' ? ' ou a liberação do lojista' : '') + '. Depois de enviado, o lançamento não pode ser alterado pela loja: se houver erro, fale com a administração do shopping.');
   }
-  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.2 · outubro de 2026</p>`;
+  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.3 · outubro de 2026</p>`;
   app.innerHTML = html;
   $('#bV').onclick = () => irPara(voltar);
 }
@@ -760,6 +760,32 @@ async function telaGHoje() {
   ${feitos.length ? `<strong>Já lançaram hoje</strong>${feitos.map(l => `<div class="item"><div class="l1"><strong>${esc(nome(l))}</strong><strong style="color:var(--azul)">R$ ${brl(lHoje[l.id].valor)}</strong></div><div class="l2"><span>${hora(lHoje[l.id].lancado_em)}</span><span class="okt">No prazo</span></div></div>`).join('')}` : ''}
   ${aLancar.length ? `<strong>Ainda vão lançar hoje</strong>${aLancar.map(l => `<div class="item" style="border-left:6px solid var(--amar)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="peq">até ${fmtLim(l)}</span></div></div>`).join('')}` : ''}`;
   if ($('#bAp')) $('#bAp').onclick = () => irPara('gAprov');
+  await blocoPlanilha();
+}
+async function blocoPlanilha() {
+  const { data: probs } = await sb.from('lancamentos').select('id,loja_id,dia,valor,sinc_status,sinc_detalhe,sinc_valor_planilha').in('sinc_status', ['conflito', 'erro']).order('dia', { ascending: false }).limit(50);
+  const { count: pend } = await sb.from('lancamentos').select('id', { count: 'exact', head: true }).eq('sinc_status', 'pendente');
+  if (!(probs && probs.length) && !pend) return;
+  const { data: lojas } = await sb.from('lojas').select('id,nome_fantasia,parte');
+  const lj = Object.fromEntries((lojas || []).map(l => [l.id, l.nome_fantasia + (l.parte ? ' — ' + l.parte : '')]));
+  const admin = S.perfil.nivel_gestao === 'admin';
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  div.innerHTML = `<strong>Envio para a planilha FATURAMENTO 2026</strong>
+    ${pend ? `<p class="peq">${pend} lançamento(s) aguardando envio. O envio acontece automaticamente a cada 5 minutos.</p>` : ''}
+    ${(probs || []).map(x => x.sinc_status === 'conflito'
+      ? `<div class="card amar"><strong>${esc(lj[x.loja_id] || '')} — ${brAno(x.dia)}</strong>
+          <p>Conflito: no app foi lançado <strong>R$ ${brl(x.valor)}</strong>${x.sinc_valor_planilha != null ? `, mas a planilha já tinha <strong>R$ ${brl(x.sinc_valor_planilha)}</strong> (coleta)` : ''}. Qual valor vale?</p>
+          ${admin ? `<div class="grade2"><button class="btn" data-conf="${x.id}" data-m="app">Valor do app</button>${x.sinc_valor_planilha != null ? `<button class="btn sec" data-conf="${x.id}" data-m="planilha">Valor da planilha</button>` : ''}</div>` : '<p class="peq">Só administradores podem resolver.</p>'}</div>`
+      : `<div class="card verm"><strong>${esc(lj[x.loja_id] || '')} — ${brAno(x.dia)}</strong><p>Não foi possível enviar R$ ${brl(x.valor)} para a planilha: ${esc(x.sinc_detalhe || '')}</p></div>`).join('')}`;
+  app.appendChild(div);
+  div.querySelectorAll('[data-conf]').forEach(b => b.onclick = async () => {
+    if (!confirm(b.dataset.m === 'app' ? 'Usar o valor do app e substituir o da planilha?' : 'Manter o valor da planilha e corrigir o lançamento do app?')) return;
+    ocupado(b, true);
+    const { error } = await sb.rpc('resolver_conflito', { p_lancamento: +b.dataset.conf, p_manter: b.dataset.m });
+    if (error) alert(msgErro(error));
+    telaGHoje();
+  });
 }
 /* ---- histórico de todas as lojas (gestão) ---- */
 let GH = { modo: 'mes', mes: '', dia: '', loja: '', prazo: '', ver: 'lista' };
