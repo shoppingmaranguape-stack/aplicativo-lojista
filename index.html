@@ -784,7 +784,7 @@ function telaSobre(op) {
       + (['lojista', 'gerente'].includes(tipo) ? bloco('verde', 'Equipe da loja', 'Ative ou desative colaboradores e libere o celular novo de alguém da equipe quando ele pedir.') : '')
       + bloco('amar', 'Segurança', 'Seu acesso é pessoal e intransferível. Em um celular novo, o app pede um código enviado por e-mail' + (tipo === 'colaborador' ? ' ou a liberação do lojista' : '') + '. Depois de enviado, o lançamento não pode ser alterado pela loja: se houver erro, fale com a administração do shopping.');
   }
-  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.4 · outubro de 2026</p>`;
+  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.5 · outubro de 2026</p>`;
   app.innerHTML = html;
   $('#bV').onclick = () => irPara(voltar);
 }
@@ -794,14 +794,23 @@ async function telaGHoje() {
   app.innerHTML = '<div class="carregando">Carregando…</div>';
   const hojeS = iso(hoje()), ontemS = iso(somaDias(hoje(), -1));
   const [{ data: lojas, error: e1 }, { data: lancs, error: e2 }] = await Promise.all([
-    sb.from('lojas').select('id,nome_fantasia,parte,horario_limite,ativa').eq('ativa', true).order('nome_fantasia'),
+    sb.from('lojas').select('id,nome_fantasia,parte,horario_limite,ativa,loja_principal_id').eq('ativa', true).order('nome_fantasia'),
     sb.from('lancamentos').select('loja_id,dia,valor,no_prazo,lancado_em').in('dia', [hojeS, ontemS])
   ]);
   if (e1 || e2) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(e1 || e2))}</p></div>`; return; }
+  // lojas que já usam o app = têm alguém da loja com acesso ativo
+  const [{ data: vincs }, { data: ativos }] = await Promise.all([
+    sb.from('perfil_lojas').select('perfil_id,loja_id'),
+    sb.from('perfis').select('id').eq('status', 'ativo').in('tipo', ['lojista', 'gerente', 'colaborador'])
+  ]);
+  const idsAtivos = new Set((ativos || []).map(x => x.id));
+  const principaisApp = new Set((vincs || []).filter(v => idsAtivos.has(v.perfil_id)).map(v => v.loja_id));
+  const usaApp = l => principaisApp.has(l.id) || (l.loja_principal_id && principaisApp.has(l.loja_principal_id));
+  const lojasApp = lojas.filter(usaApp);
   const lHoje = Object.fromEntries((lancs || []).filter(x => x.dia === hojeS).map(x => [x.loja_id, x]));
   const lOntem = Object.fromEntries((lancs || []).filter(x => x.dia === ontemS).map(x => [x.loja_id, x]));
   const nome = l => l.nome_fantasia + (l.parte ? ' — ' + l.parte : '');
-  const feitos = lojas.filter(l => lHoje[l.id]); const aLancar = lojas.filter(l => !lHoje[l.id]); const semOntem = lojas.filter(l => !lOntem[l.id]);
+  const feitos = lojas.filter(l => lHoje[l.id]); const aLancar = lojasApp.filter(l => !lHoje[l.id]); const semOntem = lojasApp.filter(l => !lOntem[l.id]);
   const total = feitos.reduce((a, l) => a + Number(lHoje[l.id].valor), 0);
   const { count } = await sb.from('perfis').select('id', { count: 'exact', head: true }).eq('status', 'pendente');
   const { count: nPed } = await sb.from('solicitacoes_correcao').select('id', { count: 'exact', head: true }).eq('status', 'em_analise');
@@ -812,9 +821,10 @@ async function telaGHoje() {
     <div class="card verm"><span class="num">${semOntem.length}</span><span class="peq">ficaram sem lançar ontem</span></div>
   </div>
   <div class="card sem"><span class="peq">Total lançado hoje pelas lojas no app</span><span class="num" style="font-size:22px">R$ ${brl(total)}</span><span class="peq">Prazo: até 23h59 do mesmo dia</span></div>
+  <p class="peq">${lojasApp.length ? `Os números consideram só as <strong>${lojasApp.length}</strong> loja(s) que já usam o app. As demais continuam na coleta e não aparecem como pendentes.` : 'Nenhuma loja usa o app ainda: as lojas continuam na coleta e não aparecem como pendentes.'}</p>
   ${count ? `<button class="btn sec" id="bAp">${count} cadastro(s) aguardando aprovação</button>` : ''}
   ${nPed ? `<button class="btn" id="bPedH">${nPed} pedido(s) de correção aguardando</button>` : ''}
-  ${semOntem.length ? `<strong>Ficaram sem lançar ontem (${br(ontemS)})</strong>${semOntem.map(l => `<div class="item" style="border-left:6px solid var(--verm)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="atr" style="font-size:14px">Sem lançamento</span></div></div>`).join('')}` : `<div class="card verde"><p>Todas as lojas lançaram ontem (${br(ontemS)}).</p></div>`}
+  ${semOntem.length ? `<strong>Ficaram sem lançar ontem (${br(ontemS)})</strong>${semOntem.map(l => `<div class="item" style="border-left:6px solid var(--verm)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="atr" style="font-size:14px">Sem lançamento</span></div></div>`).join('')}` : (lojasApp.length ? `<div class="card verde"><p>Todas as lojas que usam o app lançaram ontem (${br(ontemS)}).</p></div>` : '')}
   ${feitos.length ? `<strong>Já lançaram hoje</strong>${feitos.map(l => `<div class="item"><div class="l1"><strong>${esc(nome(l))}</strong><strong style="color:var(--azul)">R$ ${brl(lHoje[l.id].valor)}</strong></div><div class="l2"><span>${hora(lHoje[l.id].lancado_em)}</span><span class="okt">No prazo</span></div></div>`).join('')}` : ''}
   ${aLancar.length ? `<strong>Ainda vão lançar hoje</strong>${aLancar.map(l => `<div class="item" style="border-left:6px solid var(--amar)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="peq">até ${fmtLim(l)}</span></div></div>`).join('')}` : ''}`;
   if ($('#bAp')) $('#bAp').onclick = () => irPara('gAprov');
@@ -983,8 +993,17 @@ async function telaGPedidos() {
   app.querySelectorAll('[data-dec]').forEach(b => b.onclick = async () => {
     const aprovar = b.dataset.ok === '1';
     let resp = '';
-    if (aprovar) { if (!confirm('Aprovar o pedido? O valor será corrigido e reenviado para a planilha.')) return; resp = prompt('Observação (opcional):') || ''; }
-    else { resp = prompt('Motivo da recusa (obrigatório):') || ''; if (!resp.trim()) { alert('Informe o motivo da recusa.'); return; } }
+    if (aprovar) {
+      if (!confirm('Aprovar o pedido? O valor será corrigido e reenviado para a planilha.')) return;
+      const r = prompt('Observação (opcional). Clique em Cancelar para desistir da aprovação:');
+      if (r === null) return;
+      resp = r;
+    } else {
+      const r = prompt('Motivo da recusa (obrigatório). Clique em Cancelar para desistir:');
+      if (r === null) return;
+      resp = r;
+      if (!resp.trim()) { alert('Informe o motivo da recusa.'); return; }
+    }
     ocupado(b, true);
     const { error } = await sb.rpc('decidir_correcao', { p_pedido: +b.dataset.dec, p_aprovar: aprovar, p_resposta: resp });
     if (error) alert(msgErro(error));
