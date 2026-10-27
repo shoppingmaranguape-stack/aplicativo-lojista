@@ -427,7 +427,7 @@ function iniciarApp() {
   }
   if (p.tipo === 'gestao') {
     topo(`${esc(p.nome)}<br>Gestão${p.nivel_gestao === 'admin' ? ' · Administrador' : ''}`);
-    menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gAprov', nome: 'Aprovar', icone: 'check' }, { id: 'gLojas', nome: 'Lojas', icone: 'loja' }, { id: 'sair', nome: 'Sair', icone: 'pontos' }];
+    menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gHist', nome: 'Histórico', icone: 'lista' }, { id: 'gAprov', nome: 'Aprovar', icone: 'check' }, { id: 'gLojas', nome: 'Lojas', icone: 'loja' }, { id: 'sair', nome: 'Sair', icone: 'pontos' }];
     return irPara('gHoje');
   }
   menuAtual = [{ id: 'inicio', nome: 'Início', icone: 'casa' }, { id: 'lancar', nome: 'Lançar', icone: 'mais' }, { id: 'historico', nome: 'Histórico', icone: 'lista' }, { id: 'mais', nome: 'Mais', icone: 'pontos' }];
@@ -435,10 +435,10 @@ function iniciarApp() {
 }
 function irPara(id, extra) {
   if (id === 'sair') return sair();
-  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gAprov: 'gAprov', gLojas: 'gLojas' };
+  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gHist: 'gHist', gAprov: 'gAprov', gLojas: 'gLojas' };
   menu(menuAtual, mapa[id]);
   window.scrollTo(0, 0);
-  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gAprov: telaGAprov, gLojas: telaGLojas })[id](extra);
+  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gHist: telaGHist, gAprov: telaGAprov, gLojas: telaGLojas })[id](extra);
 }
 
 /* ---- dados da loja ---- */
@@ -462,9 +462,9 @@ async function carregarLancsMes() {
   S.lancs = data || [];
 }
 function pendentes() {
-  const out = []; const ini = inicioControle(); const ontem = somaDias(hoje(), -1);
+  const out = []; const ini = inicioControle(); const fim = hoje();
   for (const l of S.lojas) {
-    for (let d = new Date(ini); d <= ontem; d = somaDias(d, 1)) {
+    for (let d = new Date(ini); d <= fim; d = somaDias(d, 1)) {
       const k = iso(d);
       if (!S.lancs.some(x => x.loja_id === l.id && x.dia === k)) out.push({ loja: l, dia: k });
     }
@@ -472,18 +472,29 @@ function pendentes() {
   return out;
 }
 function nomeParte(l) { return l.parte ? l.parte : l.nome_fantasia; }
-function limiteHoje(l) { const [h, m] = String(l.horario_limite || '12:00').split(':'); const d = new Date(); d.setHours(+h, +m, 0, 0); return d; }
+function limiteHoje(l) { const [h, m] = String(l.horario_limite || '23:59').split(':'); const d = new Date(); d.setHours(+h, +m, 59, 0); return d; }
+function fmtLim(l) { const [h, m] = String((l && l.horario_limite) || '23:59').split(':'); return (+h) + 'h' + m; }
 
 async function telaInicio() {
   app.innerHTML = '<div class="carregando">Carregando…</div>';
   try { await carregarLoja(); await carregarLancsMes(); } catch (e) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(e))}</p></div>`; return; }
-  const ontem = iso(somaDias(hoje(), -1));
+  const hojeS = iso(hoje());
   const pend = pendentes();
+  const atrasados = pend.filter(p => p.dia < hojeS);
   const total = S.lancs.reduce((a, x) => a + Number(x.valor), 0);
   const lim = limiteHoje(S.lojas[0] || {});
   const falta = lim - new Date();
-  const faltaTxt = falta > 0 ? `Faltam <strong>${Math.floor(falta / 3600000)}h ${Math.floor(falta % 3600000 / 60000)}min</strong>.` : '<strong>O prazo de hoje já passou.</strong>';
+  const faltaTxt = falta > 0 ? `Faltam <strong>${Math.floor(falta / 3600000)}h ${Math.floor(falta % 3600000 / 60000)}min</strong>.` : '';
+  const parteTxt = l => S.lojas.length > 1 ? ' (' + esc(nomeParte(l)) + ')' : '';
   let html = `<h1>Olá, ${esc(S.perfil.nome.split(' ')[0])}</h1>`;
+  // aviso de dias sem lançamento
+  if (atrasados.length) {
+    html += `<div class="card verm" role="alert"><strong style="color:var(--verm);font-size:18px">Atenção</strong>
+      ${atrasados.slice(-10).reverse().map(p => `<p>O faturamento do dia <strong>${brAno(p.dia)}</strong>${parteTxt(p.loja)} não foi preenchido. Por favor, preencha agora.</p>
+        <button class="btn" data-lancar="${p.loja.id}|${p.dia}">Preencher ${br(p.dia)}</button>`).join('')}
+      ${atrasados.length > 10 ? `<p class="peq">E mais ${atrasados.length - 10} dia(s) sem lançamento neste mês.</p>` : ''}
+      <p class="peq">Lançamentos de dias anteriores ficam registrados como fora do prazo.</p></div>`;
+  }
   // pedidos de celular de colaboradores
   if (['lojista', 'gerente'].includes(S.perfil.tipo)) {
     const { data: peds } = await sb.from('dispositivos').select('id,perfil_id,descricao,criado_em').eq('status', 'pendente').neq('perfil_id', S.perfil.id);
@@ -496,14 +507,12 @@ async function telaInicio() {
     }
   }
   for (const l of S.lojas) {
-    const lanc = S.lancs.find(x => x.loja_id === l.id && x.dia === ontem);
+    const lanc = S.lancs.find(x => x.loja_id === l.id && x.dia === hojeS);
     html += lanc
-      ? `<div class="card verde"><span class="sub">${S.lojas.length > 1 ? esc(nomeParte(l)) + ': ' : ''}faturamento de ontem (${br(ontem)})</span><span class="num" style="color:var(--ok)">Enviado</span><p>R$ ${brl(lanc.valor)}, enviado ${hora(lanc.lancado_em)}, ${lanc.no_prazo ? 'dentro do prazo' : 'fora do prazo'}.</p></div>`
-      : `<div class="card verm"><span class="sub">${S.lojas.length > 1 ? esc(nomeParte(l)) + ': ' : ''}faturamento de ontem (${br(ontem)})</span><span class="num" style="color:var(--verm)">Pendente</span><p>Prazo da sua loja: hoje até <strong>${String(l.horario_limite).slice(0, 5)}</strong>. ${faltaTxt}</p><button class="btn" data-lancar="${l.id}|${ontem}">Lançar faturamento de ontem</button></div>`;
+      ? `<div class="card verde"><span class="sub">${S.lojas.length > 1 ? esc(nomeParte(l)) + ': ' : ''}faturamento de hoje (${br(hojeS)})</span><span class="num" style="color:var(--ok)">Enviado</span><p>R$ ${brl(lanc.valor)}, enviado ${hora(lanc.lancado_em)}.</p></div>`
+      : `<div class="card amar"><span class="sub">${S.lojas.length > 1 ? esc(nomeParte(l)) + ': ' : ''}faturamento de hoje (${br(hojeS)})</span><span class="num" style="color:var(--azul)">A lançar</span><p>Lance depois de fechar o caixa, até <strong>${fmtLim(l)}</strong> de hoje. ${faltaTxt}</p><button class="btn" data-lancar="${l.id}|${hojeS}">Lançar faturamento de hoje</button></div>`;
   }
-  html += `<div class="grade2"><div class="card amar"><span class="num">${pend.length}</span><span class="peq">lançamento(s) pendente(s) em ${MESES[hoje().getMonth()]}</span></div><div class="card verde"><span class="num" style="font-size:20px">R$ ${brl(total)}</span><span class="peq">lançados em ${MESES[hoje().getMonth()]}</span></div></div>`;
-  const outros = pend.filter(p => p.dia !== ontem);
-  if (outros.length) html += `<div class="card"><strong>Falta lançar também:</strong>${outros.slice(0, 10).map(p => `<button class="btn sec" data-lancar="${p.loja.id}|${p.dia}">${S.lojas.length > 1 ? esc(nomeParte(p.loja)) + ' — ' : ''}${br(p.dia)} (${SEMANA[new Date(p.dia + 'T12:00').getDay()]})</button>`).join('')}</div>`;
+  html += `<div class="grade2"><div class="card ${atrasados.length ? 'verm' : 'verde'}"><span class="num">${atrasados.length}</span><span class="peq">dia(s) sem lançamento em ${MESES[hoje().getMonth()]}</span></div><div class="card verde"><span class="num" style="font-size:20px">R$ ${brl(total)}</span><span class="peq">lançados em ${MESES[hoje().getMonth()]}</span></div></div>`;
   app.innerHTML = html;
   app.querySelectorAll('[data-lancar]').forEach(b => b.onclick = () => { const [l, d] = b.dataset.lancar.split('|'); irPara('lancar', { loja: +l, dia: d }); });
   app.querySelectorAll('[data-lib]').forEach(b => b.onclick = async () => {
@@ -524,9 +533,9 @@ async function telaLancar(pre) {
   desenharLancar(pend);
 }
 function desenharLancar(pend, erro) {
-  const ontem = iso(somaDias(hoje(), -1));
+  const hojeS = iso(hoje());
   const pendLoja = pend.filter(p => p.loja.id === L.loja).map(p => p.dia);
-  if (!L.dia || !pendLoja.includes(L.dia) && L.dia > ontem) L.dia = pendLoja[pendLoja.length - 1] || '';
+  if (!L.dia || !pendLoja.includes(L.dia) && L.dia > hojeS) L.dia = pendLoja[pendLoja.length - 1] || '';
   if (!pendLoja.length && !L.outroDia) {
     app.innerHTML = `<h1>Lançar faturamento</h1>${S.lojas.length > 1 ? partesHtml() : ''}<div class="card verde"><p>Tudo em dia. Não há faturamento pendente${S.lojas.length > 1 ? ' para ' + esc(nomeParte(S.lojas.find(x => x.id === L.loja))) : ''} em ${MESES[hoje().getMonth()]}.</p></div><button class="link" id="bOutro">Lançar um dia de mês anterior</button>`;
     ligarPartes(pend); $('#bOutro').onclick = () => { L.outroDia = true; desenharLancar(pend); }; return;
@@ -537,8 +546,8 @@ function desenharLancar(pend, erro) {
   <form class="card" id="fLanc" novalidate>
     <strong>1. Escolha o dia</strong>
     ${L.outroDia
-      ? `<input type="date" id="lDia" max="${ontem}" value="${L.dia}">`
-      : `<div class="pills">${dias.map(d => `<button type="button" class="pill" data-dia="${d}" aria-pressed="${d === L.dia}">${br(d)} · ${SEMANA[new Date(d + 'T12:00').getDay()]}${d === ontem ? ' (ontem)' : ''}</button>`).join('')}</div>
+      ? `<input type="date" id="lDia" max="${hojeS}" value="${L.dia}">`
+      : `<div class="pills">${dias.map(d => `<button type="button" class="pill" data-dia="${d}" aria-pressed="${d === L.dia}">${br(d)} · ${SEMANA[new Date(d + 'T12:00').getDay()]}${d === hojeS ? ' (hoje)' : ' (atrasado)'}</button>`).join('')}</div>
          <button type="button" class="link" id="bOutro" style="align-self:flex-start">Outro dia</button>`}
     <label for="lVal">2. Digite o valor${L.dia ? ' do dia ' + br(L.dia) : ''}</label>
     <div class="valor"><span>R$</span><input id="lVal" inputmode="decimal" placeholder="0,00" value="${esc(L.valor)}" autocomplete="off"></div>
@@ -557,7 +566,7 @@ function desenharLancar(pend, erro) {
     const v = parseValor(L.valor);
     if (!L.dia) return desenharLancar(pend, 'Escolha o dia.');
     if (isNaN(v) || v < 0) return desenharLancar(pend, 'Digite o valor antes de continuar. Ex.: 1.250,90');
-    if (L.dia > ontem) return desenharLancar(pend, 'Só é possível lançar dias que já terminaram.');
+    if (L.dia > hojeS) return desenharLancar(pend, 'Não é possível lançar dias futuros.');
     telaConfirmar(v, pend);
   };
 }
@@ -568,6 +577,7 @@ function telaConfirmar(v, pend) {
   app.innerHTML = `<div class="card amar">
     <strong style="color:var(--azul)">Confira antes de enviar</strong>
     <p style="font-size:20px">Você está informando <strong>R$ ${brl(v)}</strong> ${S.lojas.length > 1 ? 'de <strong>' + esc(nomeParte(l)) + '</strong> ' : ''}para o dia <strong>${brAno(L.dia)}</strong>. Está certo?</p>
+    ${L.dia < iso(hoje()) ? '<p class="erro" style="font-size:15px">Este dia já passou: o lançamento ficará registrado como fora do prazo.</p>' : ''}
     <p class="erro" style="font-size:15px">Depois de enviado, o valor não pode mais ser alterado pela loja. Só a administração do shopping pode corrigir.</p>
   </div>
   <p class="erro" id="cfErro" role="alert" hidden></p>
@@ -678,7 +688,7 @@ function telaGuia() {
   <div class="aviso" style="border:2px dashed #B8940F;font-weight:600">Texto provisório, a validar com o contrato</div>
   <div class="card"><strong style="color:var(--azul)">1. Feche o caixa do dia</strong><p>Some tudo o que a loja vendeu no dia: dinheiro, cartão, Pix e outros meios.</p></div>
   <div class="card verm"><strong style="color:var(--azul)">2. Não desconte despesas</strong><p>Aluguel, salários, compras de mercadoria e contas não entram nessa conta. [Regra oficial do contrato]</p></div>
-  <div class="card amar"><strong style="color:var(--azul)">3. Lance até o horário da sua loja</strong><p>O valor de ontem deve ser lançado hoje até o horário-limite da loja. Se esquecer um dia, ele fica como pendente e você ainda pode lançar.</p></div>
+  <div class="card amar"><strong style="color:var(--azul)">3. Lance no mesmo dia</strong><p>Depois de fechar o caixa, lance o faturamento do dia até 23h59. Se esquecer, no dia seguinte o app avisa e você ainda pode lançar, mas fica registrado como fora do prazo.</p></div>
   <div class="card verde"><strong style="color:var(--azul)">4. Confira antes de enviar</strong><p>O app mostra o valor e o dia antes de enviar. Depois de enviado, só a administração do shopping pode corrigir.</p></div>
   <div class="card sem"><strong>Exemplo</strong><p>A loja vendeu R$ 800,00 no cartão, R$ 350,00 no Pix e R$ 100,50 em dinheiro. Informe <strong>R$ 1.250,50</strong>.</p></div>`;
   $('#bV').onclick = () => irPara('mais');
@@ -687,30 +697,120 @@ function telaGuia() {
 /* ============ GESTÃO ============ */
 async function telaGHoje() {
   app.innerHTML = '<div class="carregando">Carregando…</div>';
-  const ontem = iso(somaDias(hoje(), -1));
+  const hojeS = iso(hoje()), ontemS = iso(somaDias(hoje(), -1));
   const [{ data: lojas, error: e1 }, { data: lancs, error: e2 }] = await Promise.all([
     sb.from('lojas').select('id,nome_fantasia,parte,horario_limite,ativa').eq('ativa', true).order('nome_fantasia'),
-    sb.from('lancamentos').select('loja_id,valor,no_prazo,lancado_em').eq('dia', ontem)
+    sb.from('lancamentos').select('loja_id,dia,valor,no_prazo,lancado_em').in('dia', [hojeS, ontemS])
   ]);
   if (e1 || e2) { app.innerHTML = `<div class="card verm"><p>${esc(msgErro(e1 || e2))}</p></div>`; return; }
-  const lanc = Object.fromEntries((lancs || []).map(x => [x.loja_id, x]));
+  const lHoje = Object.fromEntries((lancs || []).filter(x => x.dia === hojeS).map(x => [x.loja_id, x]));
+  const lOntem = Object.fromEntries((lancs || []).filter(x => x.dia === ontemS).map(x => [x.loja_id, x]));
   const nome = l => l.nome_fantasia + (l.parte ? ' — ' + l.parte : '');
-  const feitos = lojas.filter(l => lanc[l.id]); const pend = lojas.filter(l => !lanc[l.id]);
-  const fora = feitos.filter(l => !lanc[l.id].no_prazo).length;
-  const total = (lancs || []).reduce((a, x) => a + Number(x.valor), 0);
+  const feitos = lojas.filter(l => lHoje[l.id]); const aLancar = lojas.filter(l => !lHoje[l.id]); const semOntem = lojas.filter(l => !lOntem[l.id]);
+  const total = feitos.reduce((a, l) => a + Number(lHoje[l.id].valor), 0);
   const { count } = await sb.from('perfis').select('id', { count: 'exact', head: true }).eq('status', 'pendente');
-  app.innerHTML = `<h1>Faturamento de ontem (${br(ontem)})</h1>
+  app.innerHTML = `<h1>Faturamento de hoje (${br(hojeS)})</h1>
   <div class="grade2" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-    <div class="card verde"><span class="num">${feitos.length}</span><span class="peq">lançaram</span></div>
-    <div class="card verm"><span class="num">${pend.length}</span><span class="peq">pendentes</span></div>
-    <div class="card amar"><span class="num">${fora}</span><span class="peq">fora do prazo</span></div>
+    <div class="card verde"><span class="num">${feitos.length}</span><span class="peq">já lançaram hoje</span></div>
+    <div class="card amar"><span class="num">${aLancar.length}</span><span class="peq">ainda vão lançar hoje</span></div>
+    <div class="card verm"><span class="num">${semOntem.length}</span><span class="peq">ficaram sem lançar ontem</span></div>
   </div>
-  <div class="card sem"><span class="peq">Total lançado pelas lojas no app</span><span class="num" style="font-size:22px">R$ ${brl(total)}</span></div>
+  <div class="card sem"><span class="peq">Total lançado hoje pelas lojas no app</span><span class="num" style="font-size:22px">R$ ${brl(total)}</span><span class="peq">Prazo: até 23h59 do mesmo dia</span></div>
   ${count ? `<button class="btn sec" id="bAp">${count} cadastro(s) aguardando aprovação</button>` : ''}
-  <strong>Ainda não lançaram</strong>
-  ${pend.map(l => `<div class="item" style="border-left:6px solid var(--verm)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="peq">Prazo ${String(l.horario_limite).slice(0, 5)}</span></div></div>`).join('') || '<div class="card verde"><p>Todas as lojas lançaram.</p></div>'}
-  ${feitos.length ? `<strong>Já lançaram</strong>${feitos.map(l => `<div class="item"><div class="l1"><strong>${esc(nome(l))}</strong><strong style="color:var(--azul)">R$ ${brl(lanc[l.id].valor)}</strong></div><div class="l2"><span>${hora(lanc[l.id].lancado_em)}</span><span class="${lanc[l.id].no_prazo ? 'okt' : 'atr'}">${lanc[l.id].no_prazo ? 'No prazo' : 'Fora do prazo'}</span></div></div>`).join('')}` : ''}`;
+  ${semOntem.length ? `<strong>Ficaram sem lançar ontem (${br(ontemS)})</strong>${semOntem.map(l => `<div class="item" style="border-left:6px solid var(--verm)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="atr" style="font-size:14px">Sem lançamento</span></div></div>`).join('')}` : `<div class="card verde"><p>Todas as lojas lançaram ontem (${br(ontemS)}).</p></div>`}
+  ${feitos.length ? `<strong>Já lançaram hoje</strong>${feitos.map(l => `<div class="item"><div class="l1"><strong>${esc(nome(l))}</strong><strong style="color:var(--azul)">R$ ${brl(lHoje[l.id].valor)}</strong></div><div class="l2"><span>${hora(lHoje[l.id].lancado_em)}</span><span class="okt">No prazo</span></div></div>`).join('')}` : ''}
+  ${aLancar.length ? `<strong>Ainda vão lançar hoje</strong>${aLancar.map(l => `<div class="item" style="border-left:6px solid var(--amar)"><div class="l1"><strong>${esc(nome(l))}</strong><span class="peq">até ${fmtLim(l)}</span></div></div>`).join('')}` : ''}`;
   if ($('#bAp')) $('#bAp').onclick = () => irPara('gAprov');
+}
+/* ---- histórico de todas as lojas (gestão) ---- */
+let GH = { modo: 'mes', mes: '', dia: '', loja: '', prazo: '', ver: 'lista' };
+let GH_LOJAS = null;
+async function telaGHist() {
+  const t = hoje();
+  if (!GH.mes) GH.mes = iso(t).slice(0, 7);
+  if (!GH.dia) GH.dia = iso(somaDias(t, -1));
+  if (!GH_LOJAS) {
+    const { data } = await sb.from('lojas').select('id,nome_fantasia,parte,luc,loja_principal_id').order('nome_fantasia');
+    GH_LOJAS = data || [];
+  }
+  const nomeL = l => l ? l.nome_fantasia + (l.parte ? ' — ' + l.parte : '') : '';
+  const porId = Object.fromEntries(GH_LOJAS.map(l => [l.id, l]));
+  let de, ate, titulo;
+  if (GH.modo === 'dia') { de = ate = GH.dia; titulo = 'dia ' + brAno(GH.dia); }
+  else if (GH.modo === 'mes') { const [a, m] = GH.mes.split('-').map(Number); de = GH.mes + '-01'; ate = iso(new Date(a, m, 0)); titulo = MESES[m - 1] + ' de ' + a; }
+  else if (GH.modo === 'ano') { de = t.getFullYear() + '-01-01'; ate = t.getFullYear() + '-12-31'; titulo = String(t.getFullYear()); }
+  else { de = '2000-01-01'; ate = '2999-12-31'; titulo = 'desde o início'; }
+  const meses = []; for (let i = 0; i < 12; i++) { const d = new Date(t.getFullYear(), t.getMonth() - i, 1); meses.push(iso(d).slice(0, 7)); }
+  const principais = GH_LOJAS.filter(l => !l.loja_principal_id);
+  app.innerHTML = `<h1>Histórico de todas as lojas</h1>
+  <div class="seg" style="grid-template-columns:repeat(4,minmax(0,1fr))" role="group" aria-label="Período">
+    ${[['dia', 'Dia'], ['mes', 'Mês'], ['ano', 'Ano'], ['tudo', 'Tudo']].map(([k, n]) => `<button type="button" data-m="${k}" aria-pressed="${GH.modo === k}">${n}</button>`).join('')}
+  </div>
+  ${GH.modo === 'mes' ? `<div class="campo"><label for="ghMes">Mês</label><select id="ghMes">${meses.map(m => { const [a, mm] = m.split('-'); return `<option value="${m}" ${m === GH.mes ? 'selected' : ''}>${MESES[+mm - 1][0].toUpperCase() + MESES[+mm - 1].slice(1)} de ${a}</option>`; }).join('')}</select></div>` : ''}
+  ${GH.modo === 'dia' ? `<div class="campo"><label for="ghDia">Dia</label><input type="date" id="ghDia" value="${GH.dia}" max="${iso(t)}"></div>` : ''}
+  <div class="grade2">
+    <div class="campo"><label for="ghLoja">Loja</label><select id="ghLoja"><option value="">Todas as lojas</option>${principais.map(l => `<option value="${l.id}" ${String(l.id) === GH.loja ? 'selected' : ''}>${esc(l.nome_fantasia)}</option>`).join('')}</select></div>
+    <div class="campo"><label for="ghPrazo">Prazo</label><select id="ghPrazo"><option value="">Todos</option><option value="sim" ${GH.prazo === 'sim' ? 'selected' : ''}>No prazo</option><option value="nao" ${GH.prazo === 'nao' ? 'selected' : ''}>Fora do prazo</option></select></div>
+  </div>
+  <div id="ghRes"><div class="carregando">Carregando…</div></div>`;
+  app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { GH.modo = b.dataset.m; telaGHist(); });
+  if ($('#ghMes')) $('#ghMes').onchange = e => { GH.mes = e.target.value; telaGHist(); };
+  if ($('#ghDia')) $('#ghDia').onchange = e => { GH.dia = e.target.value; telaGHist(); };
+  $('#ghLoja').onchange = e => { GH.loja = e.target.value; telaGHist(); };
+  $('#ghPrazo').onchange = e => { GH.prazo = e.target.value; telaGHist(); };
+
+  let q = sb.from('lancamentos').select('*').gte('dia', de).lte('dia', ate).order('dia', { ascending: false }).order('loja_id');
+  if (GH.loja) { const ids = GH_LOJAS.filter(l => String(l.id) === GH.loja || String(l.loja_principal_id) === GH.loja).map(l => l.id); q = q.in('loja_id', ids); }
+  if (GH.prazo) q = q.eq('no_prazo', GH.prazo === 'sim');
+  const { data, error } = await q.limit(5000);
+  if (error) { $('#ghRes').innerHTML = `<div class="card verm"><p>${esc(msgErro(error))}</p></div>`; return; }
+  const lista = data || [];
+  const ids = [...new Set(lista.map(x => x.lancado_por))];
+  let nomes = {};
+  if (ids.length) { const { data: pp } = await sb.from('perfis').select('id,nome').in('id', ids); nomes = Object.fromEntries((pp || []).map(x => [x.id, x.nome])); }
+  const total = lista.reduce((a, x) => a + Number(x.valor), 0);
+  const fora = lista.filter(x => !x.no_prazo).length;
+  const lojasCom = new Set(lista.map(x => x.loja_id)).size;
+  // totais por loja
+  const porLoja = {};
+  lista.forEach(x => { const k = x.loja_id; porLoja[k] = porLoja[k] || { loja: porId[k], total: 0, dias: 0, fora: 0 }; porLoja[k].total += Number(x.valor); porLoja[k].dias++; if (!x.no_prazo) porLoja[k].fora++; });
+  const ranking = Object.values(porLoja).sort((a, b) => b.total - a.total);
+  $('#ghRes').innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
+    <div class="card"><span class="peq">Total lançado no app — ${esc(titulo)}${GH.loja ? ' — ' + esc(nomeL(porId[+GH.loja])) : ''}</span><span class="num">R$ ${brl(total)}</span>
+      <span class="peq">${lista.length} lançamento(s) de ${lojasCom} loja(s)${fora ? ` · <span class="atr">${fora} fora do prazo</span>` : ''}</span></div>
+    ${lista.length ? `<div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group" aria-label="Forma de ver">
+      <button type="button" data-v="lista" aria-pressed="${GH.ver === 'lista'}">Dia a dia</button>
+      <button type="button" data-v="loja" aria-pressed="${GH.ver === 'loja'}">Total por loja</button></div>` : ''}
+    <div id="ghLista"></div>
+    ${lista.length ? '<button class="btn sec" id="ghCsv">Baixar em planilha</button>' : ''}
+    <p class="peq">Mostra só o que foi lançado pelo aplicativo. Os lançamentos da coleta continuam na planilha FATURAMENTO 2026. As lojas que ainda não lançaram aparecem na aba Hoje.</p>
+  </div>`;
+  const desenhar = () => {
+    const alvo = $('#ghLista');
+    if (!lista.length) { alvo.innerHTML = '<div class="card cinza"><p>Nenhum lançamento encontrado com esses filtros.</p></div>'; return; }
+    if (GH.ver === 'loja') {
+      alvo.innerHTML = ranking.map(r => `<div class="item"><div class="l1"><strong>${esc(nomeL(r.loja))}</strong><strong style="color:var(--azul)">R$ ${brl(r.total)}</strong></div>
+        <div class="l2"><span>${r.dias} dia(s) lançado(s)</span><span class="${r.fora ? 'atr' : 'okt'}">${r.fora ? r.fora + ' fora do prazo' : 'Tudo no prazo'}</span></div></div>`).join('');
+    } else {
+      alvo.innerHTML = lista.slice(0, 300).map(x => `<div class="item"><div class="l1"><strong>${esc(nomeL(porId[x.loja_id]))}</strong><strong style="color:var(--azul)">R$ ${brl(x.valor)}</strong></div>
+        <div class="l2"><span>${brAno(x.dia)} · ${esc(nomes[x.lancado_por] || '')}, ${hora(x.lancado_em)}</span><span class="${x.no_prazo ? 'okt' : 'atr'}">${x.no_prazo ? 'No prazo' : 'Fora do prazo'}</span></div></div>`).join('')
+        + (lista.length > 300 ? `<p class="peq centro">Mostrando os 300 mais recentes. Baixe em planilha para ver todos os ${lista.length}.</p>` : '');
+    }
+  };
+  desenhar();
+  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { GH.ver = b.dataset.v; app.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b)); desenhar(); });
+  if ($('#ghCsv')) $('#ghCsv').onclick = () => {
+    const linhas = [['Data', 'Loja', 'Parte', 'LUC', 'Valor (R$)', 'Lançado por', 'Lançado em', 'Prazo', 'Protocolo']];
+    lista.slice().sort((a, b) => a.dia < b.dia ? -1 : a.dia > b.dia ? 1 : a.loja_id - b.loja_id).forEach(x => {
+      const l = porId[x.loja_id] || {}; const d = new Date(x.lancado_em);
+      linhas.push([brAno(x.dia), l.nome_fantasia || '', l.parte || '', l.luc || '', brl(x.valor), nomes[x.lancado_por] || '', brAno(iso(d)) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), x.no_prazo ? 'No prazo' : 'Fora do prazo', 'MSH-' + String(x.id).padStart(6, '0')]);
+    });
+    const csv = '\ufeff' + linhas.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'historico-lojas-' + (GH.modo === 'mes' ? GH.mes : GH.modo === 'dia' ? GH.dia : GH.modo) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
 }
 async function telaGAprov() {
   app.innerHTML = '<div class="carregando">Carregando…</div>';
@@ -744,7 +844,7 @@ async function telaGLojas() {
   app.innerHTML = `<h1>Lojas</h1>
   <p class="sub">Entregue o código de convite só ao responsável da loja. Ao gerar um código novo, o antigo deixa de valer.</p>
   ${data.filter(l => !l.loja_principal_id).map(l => `<div class="card ${l.ativa ? '' : 'cinza'}">
-    <div style="display:flex;justify-content:space-between;gap:10px"><strong>${esc(l.nome_fantasia)}</strong><span class="peq">${esc(l.luc || '')} · prazo ${String(l.horario_limite).slice(0, 5)}</span></div>
+    <div style="display:flex;justify-content:space-between;gap:10px"><strong>${esc(l.nome_fantasia)}</strong><span class="peq">${esc(l.luc || '')} · prazo até ${fmtLim(l)}</span></div>
     ${l.ativa ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>Código: <strong style="font-size:19px;color:var(--azul);letter-spacing:1px">${esc(l.codigo_convite || '—')}</strong></span>${admin ? `<button class="btn sec peq" data-cod="${l.id}">Gerar novo código</button>` : ''}</div>` : '<span class="peq">Inativa (não lança faturamento)</span>'}
   </div>`).join('')}`;
   app.querySelectorAll('[data-cod]').forEach(b => b.onclick = async () => {
