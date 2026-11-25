@@ -32,7 +32,8 @@ p{margin:0}
 .card.verm{border-left-color:var(--verm)}.card.amar{border-left-color:var(--amar)}.card.verde{border-left-color:var(--verde)}.card.cinza{border-left-color:var(--borda)}.card.sem{border-left:none}
 label{font-weight:600;font-size:16px}
 input,select{font:inherit;font-size:18px;height:54px;border:2px solid var(--borda);border-radius:12px;padding:0 14px;width:100%;background:#fff;color:var(--texto)}
-input:focus,select:focus,button:focus-visible{outline:3px solid var(--amar);outline-offset:2px;border-color:var(--azul)}
+textarea{font:inherit;font-size:17px;min-height:96px;border:2px solid var(--borda);border-radius:12px;padding:12px 14px;width:100%;background:#fff;color:var(--texto);resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid var(--amar);outline-offset:2px;border-color:var(--azul)}
 .campo{display:flex;flex-direction:column;gap:6px}
 .valor{display:flex;align-items:center;gap:8px;border:2px solid var(--azul);border-radius:12px;padding:0 14px;height:66px;background:#fff}
 .valor span{font-size:22px;font-weight:600;color:var(--azul)}
@@ -399,7 +400,7 @@ async function posLogin(acabouDeEntrar) {
     return telaTrocarSenhaInicial();
   }
   // loja escolhida
-  if (perfil.tipo !== 'gestao') {
+  if (!['gestao', 'financeiro'].includes(perfil.tipo)) {
     if (!lojaSel) definirLoja(perfil.loja_id);
     const { data: ml } = await sb.rpc('minha_loja');
     if (!ml) { await sb.auth.signOut(); definirLoja(''); return telaEntrada('Seu acesso não é desta loja. Escolha a loja certa.'); }
@@ -478,15 +479,21 @@ function iniciarApp() {
     menuAtual = [{ id: 'gHoje', nome: 'Hoje', icone: 'cal' }, { id: 'gHist', nome: 'Histórico', icone: 'lista' }, { id: 'gPed', nome: 'Pedidos', icone: 'mais' }, { id: 'gAprov', nome: 'Cadastros', icone: 'check' }, { id: 'gMais', nome: 'Mais', icone: 'pontos' }];
     return irPara('gHoje');
   }
+  if (p.tipo === 'financeiro') {
+    topo(`${esc(p.nome)}<br>Financeiro`);
+    menuAtual = [{ id: 'fValid', nome: 'Validação', icone: 'check' }, { id: 'fPed', nome: 'Pedidos', icone: 'mais' }, { id: 'fNum', nome: 'Faturamento', icone: 'cal' }, { id: 'fMais', nome: 'Mais', icone: 'pontos' }];
+    return irPara('fValid');
+  }
   menuAtual = [{ id: 'inicio', nome: 'Início', icone: 'casa' }, { id: 'lancar', nome: 'Lançar', icone: 'mais' }, { id: 'historico', nome: 'Histórico', icone: 'lista' }, { id: 'mais', nome: 'Mais', icone: 'pontos' }];
   irPara('inicio');
 }
 function irPara(id, extra) {
   if (id === 'sair') return sair();
-  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gHist: 'gHist', gAprov: 'gAprov', gLojas: 'gMais', gPed: 'gPed', gMais: 'gMais', gGuia: 'gMais', gSobre: 'gMais', sobre: 'mais' };
-  menu(menuAtual, mapa[id]);
+  const mapa = { inicio: 'inicio', lancar: 'lancar', historico: 'historico', mais: 'mais', equipe: 'mais', guia: 'mais', gHoje: 'gHoje', gHist: 'gHist', gAprov: 'gAprov', gLojas: 'gMais', gPed: 'gPed', gMais: 'gMais', gGuia: 'gMais', gSobre: 'gMais', sobre: 'mais', fValid: 'fValid', fPed: 'fPed', fNum: 'fNum', fMais: 'fMais', fGuia: 'fMais', fSobre: 'fMais' };
+  const atual = S.perfil && S.perfil.tipo === 'gestao' && /^f[A-Z]/.test(id) ? 'gMais' : mapa[id];
+  menu(menuAtual, atual);
   window.scrollTo(0, 0);
-  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gHist: telaGHist, gAprov: telaGAprov, gLojas: telaGLojas, gPed: telaGPedidos, gMais: telaGMais, gGuia: () => telaGuia({ voltar: 'gMais' }), gSobre: () => telaSobre({ voltar: 'gMais' }), sobre: () => telaSobre({ voltar: 'mais' }) })[id](extra);
+  ({ inicio: telaInicio, lancar: telaLancar, historico: telaHistorico, mais: telaMais, equipe: telaEquipe, guia: telaGuia, gHoje: telaGHoje, gHist: telaGHist, gAprov: telaGAprov, gLojas: telaGLojas, gPed: telaGPedidos, gMais: telaGMais, gGuia: () => telaGuia({ voltar: 'gMais' }), gSobre: () => telaSobre({ voltar: 'gMais' }), sobre: () => telaSobre({ voltar: 'mais' }), fValid: telaFValid, fPed: telaFPedidos, fNum: telaFNumeros, fMais: telaFMais, fGuia: telaFGuia, fSobre: () => telaSobre({ voltar: 'fMais' }) })[id](extra);
 }
 
 /* ---- dados da loja ---- */
@@ -869,11 +876,15 @@ function telaGuia(op) {
 function telaGMais() {
   app.innerHTML = `<h1>Mais opções</h1>
   <button class="card" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmLojas">Lojas e códigos de convite</button>
+  ${S.perfil.nivel_gestao === 'admin' ? `<button class="card" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmFVal">Validação da planilha (Financeiro)<br><span class="peq" style="font-weight:400">Respostas da Beth e do Claudemir às perguntas sobre a planilha</span></button>
+  <button class="card" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmFPed">Pedidos e edições do Financeiro<br><span class="peq" style="font-weight:400">Registro de mudanças no faturamento</span></button>
+  <button class="card" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmFNum">Faturamento do mês por loja</button>` : ''}
   <button class="card amar" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmGuia">Como preencher<br><span class="peq" style="font-weight:400">O guia que o lojista e o colaborador veem</span></button>
   <button class="card verde" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmSobre">Sobre o aplicativo</button>
   <button class="card verm" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="gmSair">Sair</button>
   <p class="peq centro">Instale o app: no Android, menu ⋮ › Adicionar à tela inicial. No iPhone, Compartilhar › Adicionar à Tela de Início.</p>`;
   $('#gmLojas').onclick = () => irPara('gLojas');
+  if ($('#gmFVal')) { $('#gmFVal').onclick = () => irPara('fValid'); $('#gmFPed').onclick = () => irPara('fPed'); $('#gmFNum').onclick = () => irPara('fNum'); }
   $('#gmGuia').onclick = () => irPara('gGuia');
   $('#gmSobre').onclick = () => irPara('gSobre');
   $('#gmSair').onclick = sair;
@@ -885,7 +896,12 @@ function telaSobre(op) {
   let html = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
   <h1>Sobre o aplicativo</h1>
   <p class="sub">O Aplicativo Lojista é o canal do Maranguape Shopping Mall para o envio do faturamento diário das lojas.</p>`;
-  if (tipo === 'gestao') {
+  if (tipo === 'financeiro') {
+    html += bloco('', 'Validação', 'Perguntas sobre a planilha FATURAMENTO 2026, para confirmar se cada regra, valor e cálculo está certo antes de o faturamento passar a ser controlado pelo aplicativo.')
+      + bloco('amar', 'Pedidos e edições', 'Registro de toda mudança pedida no faturamento e de toda edição feita à mão na planilha, com quem, quando, o quê e por quê.')
+      + bloco('', 'Faturamento', 'Total do mês por loja. Por enquanto, mostra só o que as lojas lançaram pelo aplicativo.')
+      + bloco('verm', 'Segurança', 'Seu acesso é pessoal e intransferível e vê só o que é do faturamento. Em um celular ou computador novo, o app pede um código enviado por e-mail. Respostas e registros não podem ser alterados nem apagados.');
+  } else if (tipo === 'gestao') {
     html += bloco('', 'Hoje', 'Mostra quais lojas já lançaram o faturamento de hoje, quais ainda vão lançar e quais ficaram sem lançar ontem.')
       + bloco('', 'Histórico', 'Consulta os lançamentos de todas as lojas por dia, mês, ano ou desde o início, com filtro por loja e por prazo. Também permite baixar os dados em planilha.')
       + bloco('amar', 'Pedidos', 'Recebe os pedidos de correção feitos pelas lojas, com o valor lançado, o valor pedido e o motivo. O administrador aprova (o valor é corrigido e reenviado à planilha) ou recusa, informando o motivo. Tudo fica registrado.')
@@ -900,7 +916,7 @@ function telaSobre(op) {
       + (['lojista', 'gerente'].includes(tipo) ? bloco('verde', 'Equipe da loja', 'Ative ou desative colaboradores e libere o celular novo de alguém da equipe quando ele pedir.') : '')
       + bloco('amar', 'Segurança', 'Seu acesso é pessoal e intransferível. Em um celular novo, o app pede um código enviado por e-mail' + (tipo === 'colaborador' ? ' ou a liberação do lojista' : '') + '. Depois de enviado, o lançamento não pode ser alterado pela loja: se houver erro, fale com a administração do shopping.');
   }
-  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.7 · outubro de 2026</p>`;
+  html += `<p class="peq centro">Dúvidas: administração do Maranguape Shopping Mall · Versão 1.8 · novembro de 2026</p>`;
   app.innerHTML = html;
   $('#bV').onclick = () => irPara(voltar);
 }
@@ -1168,6 +1184,334 @@ async function telaGLojas() {
     if (error) alert(msgErro(error));
     telaGLojas();
   });
+}
+
+/* ============ FINANCEIRO (validação da planilha e registro de alterações) ============ */
+const F_OBJETOS = {
+  faturamento_dia: 'Faturamento de um dia',
+  contrato_aluguel: 'Contrato e aluguel (AMM, percentual)',
+  cadastro_loja: 'Cadastro da loja (nome, LUC, piso)',
+  calculo: 'Cálculo ou fórmula',
+  relatorio: 'Relatório',
+  planilha: 'Estrutura da planilha',
+  outro: 'Outro assunto'
+};
+const F_ORIGENS = { planilha: 'Na planilha FATURAMENTO 2026', app: 'No aplicativo', central: 'Na Central', outro: 'Em outro lugar' };
+const F_SITUACAO_RESP = { certo: 'Está certo', errado: 'Está errado', nao_sei: 'Não sei' };
+const F_SITUACAO_PED = { aberta: 'Aberto', em_andamento: 'Em andamento', feita: 'Feito', recusada: 'Recusado' };
+const F_COR_PED = { aberta: 'amar', em_andamento: 'amar', feita: 'verde', recusada: 'cinza' };
+let F_LOJAS = null;
+let FV = { filtro: 'faltam', bloco: '' };
+let FP = { filtro: 'abertos' };
+let FN = { mes: '' };
+
+function fEhAdmin() { return S.perfil && S.perfil.tipo === 'gestao'; }
+function fVoltarHtml() { return fEhAdmin() ? '<button class="link" id="bFV" style="align-self:flex-start">‹ Voltar</button>' : ''; }
+function fLigarVoltar() { if ($('#bFV')) $('#bFV').onclick = () => irPara('gMais'); }
+function fErroTela(e) { app.innerHTML = `${fVoltarHtml()}<div class="card verm"><p>${esc(msgErro(e))}</p></div>`; fLigarVoltar(); }
+function fTeste(r) { return r && r.eh_teste ? ' <span class="peq">(teste)</span>' : ''; }
+async function fCarregarLojas() {
+  if (F_LOJAS) return F_LOJAS;
+  const { data, error } = await sb.from('fat_lojas').select('*').order('loja');
+  if (error) throw error;
+  F_LOJAS = data || [];
+  return F_LOJAS;
+}
+function fNomeLoja(l) { return l ? (l.luc ? l.luc + ' · ' : '') + l.loja + (l.parte ? ' — ' + l.parte : '') : ''; }
+function fMesBr(m) { const [a, mm] = m.slice(0, 7).split('-'); const n = MESES[+mm - 1]; return n[0].toUpperCase() + n.slice(1) + ' de ' + a; }
+
+/* ---- 1. Validação da planilha ---- */
+async function telaFValid() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  const [{ data: pergs, error: e1 }, { data: resps, error: e2 }] = await Promise.all([
+    sb.from('fat_validacao_perguntas').select('*').eq('ativa', true).order('bloco').order('ordem'),
+    sb.from('fat_validacao_respostas').select('*').order('criado_em', { ascending: false }).limit(5000)
+  ]);
+  if (e1 || e2) return fErroTela(e1 || e2);
+  const admin = fEhAdmin();
+  const eu = S.perfil.id;
+  // a resposta que vale é a mais recente de cada pessoa em cada pergunta
+  const ult = {};
+  (resps || []).forEach(r => {
+    if (r.eh_teste && !admin && r.respondido_por !== eu) return;
+    ult[r.pergunta_id] = ult[r.pergunta_id] || {};
+    if (!ult[r.pergunta_id][r.respondido_por]) ult[r.pergunta_id][r.respondido_por] = r;
+  });
+  const qtdHist = {}; (resps || []).forEach(r => { if (r.respondido_por === eu) qtdHist[r.pergunta_id] = (qtdHist[r.pergunta_id] || 0) + 1; });
+  const minha = p => (ult[p.id] || {})[eu];
+  const outras = p => Object.values(ult[p.id] || {}).filter(r => r.respondido_por !== eu);
+  const lista = pergs || [];
+  const feitas = lista.filter(minha).length;
+  const blocos = [...new Map(lista.map(p => [p.bloco, p.bloco_nome])).entries()];
+  let vis = lista;
+  if (FV.bloco) vis = vis.filter(p => p.bloco === FV.bloco);
+  if (FV.filtro === 'faltam') vis = vis.filter(p => !minha(p));
+  if (FV.filtro === 'feitas') vis = vis.filter(minha);
+  const pct = lista.length ? Math.round(feitas / lista.length * 100) : 0;
+  const porPessoa = {};
+  Object.values(ult).forEach(m => Object.values(m).forEach(r => { if (r.eh_teste) return; porPessoa[r.respondido_nome || 'Sem nome'] = (porPessoa[r.respondido_nome || 'Sem nome'] || 0) + 1; }));
+  const resumoPessoas = Object.entries(porPessoa).sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([n, q]) => `${esc(n)}: ${q} de ${lista.length}`).join(' · ');
+  const corResp = { certo: 'okt', errado: 'atr', nao_sei: '' };
+  app.innerHTML = `${fVoltarHtml()}
+  <h1>Validação da planilha</h1>
+  <p class="sub">Confira cada ponto da planilha FATURAMENTO 2026 e diga se está certo. Suas respostas ficam registradas com nome, data e hora.</p>
+  ${admin ? '<div class="aviso">Você está como administrador: o que responder aqui fica marcado como teste e não conta como resposta do Financeiro.</div>' : ''}
+  <div class="card ${feitas === lista.length && lista.length ? 'verde' : ''}">
+    <span class="peq">Você respondeu</span>
+    <span class="num">${feitas} de ${lista.length}</span>
+    <div style="background:#E6E8F5;border-radius:999px;height:10px;overflow:hidden" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div style="height:100%;width:${pct}%;background:var(--verde)"></div></div>
+    <span class="peq">${resumoPessoas ? 'Respostas do Financeiro e do Administrativo: ' + resumoPessoas : 'O Financeiro e o Administrativo ainda não responderam.'}</span>
+  </div>
+  <div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr))" role="group" aria-label="Filtro">
+    ${[['faltam', 'Faltam'], ['feitas', 'Respondidas'], ['todas', 'Todas']].map(([k, n]) => `<button type="button" data-fv="${k}" aria-pressed="${FV.filtro === k}">${n}</button>`).join('')}
+  </div>
+  <div class="campo"><label for="fvBloco">Assunto</label><select id="fvBloco"><option value="">Todos os assuntos</option>${blocos.map(([b, n]) => `<option value="${b}" ${FV.bloco === b ? 'selected' : ''}>${b} · ${esc(n)}</option>`).join('')}</select></div>
+  ${vis.length ? vis.map(p => {
+    const m = minha(p); const os = outras(p);
+    return `<div class="card ${m ? (m.situacao === 'errado' ? 'verm' : m.situacao === 'nao_sei' ? 'amar' : 'verde') : 'cinza'}">
+      <div style="display:flex;justify-content:space-between;gap:10px"><strong style="color:var(--azul)">${esc(p.id)}</strong><span class="peq">${esc(p.bloco_nome)}</span></div>
+      <p style="font-weight:600">${esc(p.pergunta)}</p>
+      <div class="aviso" style="background:#F4F5FA;color:var(--texto)"><span class="peq">O que está na planilha</span><br>${esc(p.evidencia)}</div>
+      <span class="peq">Quem responde: ${esc(p.responde)}</span>
+      ${m ? `<p>Sua resposta: <span class="${corResp[m.situacao]}">${F_SITUACAO_RESP[m.situacao]}</span>${fTeste(m)} <span class="peq">· ${hora(m.criado_em)}${qtdHist[p.id] > 1 ? ' · ' + qtdHist[p.id] + ' respostas no histórico' : ''}</span></p>
+        ${m.correcao ? `<p class="peq">O certo: ${esc(m.correcao)}</p>` : ''}${m.quem_sabe ? `<p class="peq">Quem sabe: ${esc(m.quem_sabe)}</p>` : ''}` : ''}
+      ${os.map(r => `<p class="peq">${esc(r.respondido_nome || 'Outra pessoa')}: <span class="${corResp[r.situacao]}">${F_SITUACAO_RESP[r.situacao]}</span>${fTeste(r)} · ${hora(r.criado_em)}${r.correcao ? ' · O certo: ' + esc(r.correcao) : ''}${r.quem_sabe ? ' · Quem sabe: ' + esc(r.quem_sabe) : ''}</p>`).join('')}
+      <button class="btn ${m ? 'sec' : ''}" data-resp="${esc(p.id)}">${m ? 'Mudar minha resposta' : 'Responder'}</button>
+    </div>`;
+  }).join('') : `<div class="card verde"><p>${FV.filtro === 'faltam' ? 'Você já respondeu todas as perguntas' + (FV.bloco ? ' deste assunto' : '') + '. Obrigado!' : 'Nenhuma pergunta com esse filtro.'}</p></div>`}`;
+  fLigarVoltar();
+  app.querySelectorAll('[data-fv]').forEach(b => b.onclick = () => { FV.filtro = b.dataset.fv; telaFValid(); });
+  $('#fvBloco').onchange = e => { FV.bloco = e.target.value; telaFValid(); };
+  app.querySelectorAll('[data-resp]').forEach(b => b.onclick = () => telaFResponder(lista.find(p => p.id === b.dataset.resp)));
+}
+
+function telaFResponder(p, erro, v) {
+  v = v || { situacao: '', correcao: '', motivo: '', quem_sabe: '', comentario: '' };
+  window.scrollTo(0, 0);
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar para a lista</button>
+  <h1>${esc(p.id)} · Responder</h1>
+  <div class="card">
+    <p style="font-weight:600">${esc(p.pergunta)}</p>
+    <div class="aviso" style="background:#F4F5FA;color:var(--texto)"><span class="peq">O que está na planilha</span><br>${esc(p.evidencia)}</div>
+  </div>
+  <form class="card" id="fResp" novalidate>
+    <label id="lSit">O que está na planilha está certo?</label>
+    <div class="pills" role="group" aria-labelledby="lSit">
+      ${Object.entries(F_SITUACAO_RESP).map(([k, n]) => `<button type="button" class="pill" data-sit="${k}" aria-pressed="${v.situacao === k}">${n}</button>`).join('')}
+    </div>
+    ${v.situacao === 'errado' ? `
+      <div class="campo"><label for="rCor">Qual é o certo?</label><textarea id="rCor" placeholder="Ex.: o AMM da loja é R$ 1.200,00, não R$ 1.000,00">${esc(v.correcao)}</textarea></div>
+      <div class="campo"><label for="rMot">Por quê? Onde isso está (contrato, aditivo, e-mail)?</label><textarea id="rMot" placeholder="Ex.: aditivo assinado em março de 2026">${esc(v.motivo)}</textarea></div>` : ''}
+    ${v.situacao === 'nao_sei' ? `<div class="campo"><label for="rQuem">Quem sabe responder?</label><input id="rQuem" value="${esc(v.quem_sabe)}" placeholder="Nome ou setor"></div>` : ''}
+    ${v.situacao ? `<div class="campo"><label for="rCom">Comentário (opcional)</label><textarea id="rCom">${esc(v.comentario)}</textarea></div>` : ''}
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <p class="peq">Sua resposta fica registrada com seu nome, data e hora e não pode ser apagada. Se mudar de ideia depois, responda de novo: a resposta anterior continua no histórico.</p>
+    <button class="btn" type="submit" id="bResp" ${v.situacao ? '' : 'disabled'}>Registrar resposta</button>
+  </form>`;
+  const ler = () => ({ situacao: v.situacao, correcao: $('#rCor') ? $('#rCor').value : '', motivo: $('#rMot') ? $('#rMot').value : '', quem_sabe: $('#rQuem') ? $('#rQuem').value : '', comentario: $('#rCom') ? $('#rCom').value : '' });
+  $('#bV').onclick = () => telaFValid();
+  app.querySelectorAll('[data-sit]').forEach(b => b.onclick = () => { const atual = ler(); atual.situacao = b.dataset.sit; telaFResponder(p, '', atual); });
+  $('#fResp').onsubmit = async ev => {
+    ev.preventDefault();
+    const d = ler();
+    if (!d.situacao) return telaFResponder(p, 'Escolha uma das opções.', d);
+    if (d.situacao === 'errado' && (!d.correcao.trim() || !d.motivo.trim())) return telaFResponder(p, 'Quando está errado, diga qual é o certo e por quê.', d);
+    if (d.situacao === 'nao_sei' && !d.quem_sabe.trim()) return telaFResponder(p, 'Diga quem pode responder esta pergunta.', d);
+    ocupado($('#bResp'), true, 'Registrando…');
+    const { error } = await sb.from('fat_validacao_respostas').insert({
+      pergunta_id: p.id, situacao: d.situacao,
+      correcao: d.situacao === 'errado' ? d.correcao.trim() : null,
+      motivo: d.situacao === 'errado' ? d.motivo.trim() : null,
+      quem_sabe: d.situacao === 'nao_sei' ? d.quem_sabe.trim() : null,
+      comentario: d.comentario.trim() || null, dispositivo: descAparelho()
+    });
+    if (error) return telaFResponder(p, msgErro(error), d);
+    telaFValid();
+  };
+}
+
+/* ---- 2. Pedidos de mudança e edições manuais ---- */
+async function telaFPedidos() {
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  let todos, lojas;
+  try {
+    lojas = await fCarregarLojas();
+    const { data, error } = await sb.from('fat_alteracoes').select('*').order('criado_em', { ascending: false }).limit(2000);
+    if (error) throw error;
+    todos = data || [];
+  } catch (e) { return fErroTela(e); }
+  const admin = fEhAdmin();
+  if (!admin) todos = todos.filter(x => !x.eh_teste || x.feito_por === S.perfil.id);
+  const lj = Object.fromEntries(lojas.map(l => [l.loja_id, l]));
+  const respostas = {}; todos.filter(x => x.tipo === 'resposta').forEach(x => { (respostas[x.referencia_id] = respostas[x.referencia_id] || []).push(x); });
+  const situacao = x => { const r = respostas[x.id]; return r && r.length ? r[0].situacao : 'aberta'; };
+  let itens = todos.filter(x => x.tipo !== 'resposta');
+  const abertos = itens.filter(x => x.tipo === 'solicitacao' && ['aberta', 'em_andamento'].includes(situacao(x))).length;
+  if (FP.filtro === 'abertos') itens = itens.filter(x => x.tipo === 'solicitacao' && ['aberta', 'em_andamento'].includes(situacao(x)));
+  if (FP.filtro === 'edicoes') itens = itens.filter(x => x.tipo === 'edicao_manual');
+  const detalhe = x => `<dl class="dados">
+      <dt>Assunto</dt><dd>${esc(F_OBJETOS[x.objeto] || x.objeto)}</dd>
+      ${x.loja_id ? `<dt>Loja</dt><dd>${esc(fNomeLoja(lj[x.loja_id]) || x.luc || '')}</dd>` : ''}
+      ${x.competencia ? `<dt>Mês</dt><dd>${fMesBr(x.competencia)}</dd>` : ''}
+      ${x.dia ? `<dt>Dia</dt><dd>${brAno(x.dia)}</dd>` : ''}
+      ${x.campo ? `<dt>O que muda</dt><dd>${esc(x.campo)}</dd>` : ''}
+      ${x.valor_anterior ? `<dt>Como estava</dt><dd>${esc(x.valor_anterior)}</dd>` : ''}
+      ${x.valor_novo ? `<dt>Como fica</dt><dd>${esc(x.valor_novo)}</dd>` : ''}
+      <dt>Motivo</dt><dd style="font-weight:400">${esc(x.motivo)}</dd>
+      <dt>Onde</dt><dd>${esc(F_ORIGENS[x.origem] || x.origem)}</dd>
+      <dt>Registrado por</dt><dd>${esc(x.feito_nome || '')}, ${hora(x.criado_em)}</dd>
+    </dl>`;
+  app.innerHTML = `${fVoltarHtml()}
+  <h1>Pedidos e edições</h1>
+  <p class="sub">Toda mudança pedida no faturamento e toda edição feita à mão na planilha fica registrada aqui, com quem, quando, o quê e por quê. Nada pode ser apagado.</p>
+  <button class="btn" id="bNovo">+ Registrar pedido ou edição</button>
+  <div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr))" role="group" aria-label="Filtro">
+    ${[['abertos', `Abertos${abertos ? ' (' + abertos + ')' : ''}`], ['edicoes', 'Edições'], ['todos', 'Todos']].map(([k, n]) => `<button type="button" data-fp="${k}" aria-pressed="${FP.filtro === k}">${n}</button>`).join('')}
+  </div>
+  ${itens.length ? itens.map(x => {
+    if (x.tipo === 'edicao_manual') return `<div class="card cinza">
+      <div style="display:flex;justify-content:space-between;gap:10px"><strong style="color:var(--azul)">Edição manual${fTeste(x)}</strong><span class="peq">Nº ${x.id}</span></div>${detalhe(x)}</div>`;
+    const st = situacao(x); const rs = (respostas[x.id] || []).slice().reverse();
+    return `<div class="card ${F_COR_PED[st]}">
+      <div style="display:flex;justify-content:space-between;gap:10px"><strong style="color:var(--azul)">Pedido de mudança${fTeste(x)}</strong><span class="peq">Nº ${x.id} · ${F_SITUACAO_PED[st]}</span></div>
+      ${detalhe(x)}
+      ${rs.map(r => `<p class="peq">${F_SITUACAO_PED[r.situacao]} — ${esc(r.feito_nome || '')}, ${hora(r.criado_em)}: ${esc(r.motivo)}</p>`).join('')}
+      ${['aberta', 'em_andamento'].includes(st) ? `<button class="btn sec" data-and="${x.id}">Registrar andamento</button>` : ''}
+    </div>`;
+  }).join('') : `<div class="card verde"><p>${FP.filtro === 'abertos' ? 'Nenhum pedido aberto.' : FP.filtro === 'edicoes' ? 'Nenhuma edição manual registrada.' : 'Nada registrado ainda.'}</p></div>`}`;
+  fLigarVoltar();
+  $('#bNovo').onclick = () => telaFRegistrar();
+  app.querySelectorAll('[data-fp]').forEach(b => b.onclick = () => { FP.filtro = b.dataset.fp; telaFPedidos(); });
+  app.querySelectorAll('[data-and]').forEach(b => b.onclick = () => telaFAndamento(todos.find(x => x.id === +b.dataset.and)));
+}
+
+async function telaFRegistrar(erro, v) {
+  v = v || { tipo: 'solicitacao', objeto: '', loja_id: '', mes: '', dia: '', campo: '', valor_anterior: '', valor_novo: '', motivo: '', origem: 'planilha' };
+  let lojas;
+  try { lojas = await fCarregarLojas(); } catch (e) { return fErroTela(e); }
+  window.scrollTo(0, 0);
+  const ordenadas = lojas.filter(l => l.luc !== 'TESTE').sort((a, b) => (b.ativa - a.ativa) || fNomeLoja(a).localeCompare(fNomeLoja(b), 'pt-BR'));
+  const ed = v.tipo === 'edicao_manual';
+  const t0 = hoje(); const mesesRef = []; for (let i = 6; i >= -18; i--) mesesRef.push(iso(new Date(t0.getFullYear(), t0.getMonth() + i, 1)).slice(0, 7));
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Registrar</h1>
+  <form class="card" id="fReg" novalidate>
+    <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="group" aria-label="Tipo de registro">
+      <button type="button" data-tp="solicitacao" aria-pressed="${!ed}">Pedido de mudança</button>
+      <button type="button" data-tp="edicao_manual" aria-pressed="${ed}">Edição já feita</button>
+    </div>
+    <p class="peq">${ed ? 'Use quando você já alterou algo à mão (por exemplo, na planilha). O registro guarda como estava, como ficou e o motivo.' : 'Use para pedir que algo seja mudado. O pedido fica aberto até alguém registrar que foi feito ou recusado.'}</p>
+    <div class="campo"><label for="gObj">Assunto</label><select id="gObj"><option value="">Escolha</option>${Object.entries(F_OBJETOS).map(([k, n]) => `<option value="${k}" ${v.objeto === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+    <div class="campo"><label for="gLoja">Loja (se for de uma loja)</label><select id="gLoja"><option value="">Não é de uma loja específica</option>${ordenadas.map(l => `<option value="${l.loja_id}" ${String(l.loja_id) === String(v.loja_id) ? 'selected' : ''}>${esc(fNomeLoja(l))}${l.ativa ? '' : ' (inativa)'}</option>`).join('')}</select></div>
+    <div class="grade2">
+      <div class="campo"><label for="gMes">Mês de referência</label><select id="gMes"><option value="">Nenhum</option>${mesesRef.map(m => `<option value="${m}" ${v.mes === m ? 'selected' : ''}>${fMesBr(m)}</option>`).join('')}</select></div>
+      <div class="campo"><label for="gDia">Dia (se for de um dia)</label><input type="date" id="gDia" value="${esc(v.dia)}"></div>
+    </div>
+    <div class="campo"><label for="gCampo">O que ${ed ? 'foi alterado' : 'deve mudar'}${ed ? '' : ' (opcional)'}</label><input id="gCampo" value="${esc(v.campo)}" placeholder="Ex.: AMM, percentual, valor do dia 12"></div>
+    <div class="grade2">
+      <div class="campo"><label for="gAnt">Como estava</label><input id="gAnt" value="${esc(v.valor_anterior)}"></div>
+      <div class="campo"><label for="gNovo">${ed ? 'Como ficou' : 'Como deve ficar'}</label><input id="gNovo" value="${esc(v.valor_novo)}"></div>
+    </div>
+    <div class="campo"><label for="gMot">Motivo</label><textarea id="gMot" placeholder="Ex.: aditivo de contrato assinado em março; erro de digitação na coleta">${esc(v.motivo)}</textarea></div>
+    <div class="campo"><label for="gOri">${ed ? 'Onde foi alterado' : 'Onde deve mudar'}</label><select id="gOri">${Object.entries(F_ORIGENS).map(([k, n]) => `<option value="${k}" ${v.origem === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <p class="peq">O registro fica com seu nome, data e hora e não pode ser alterado nem apagado. Se errar, registre de novo explicando a correção.</p>
+    <button class="btn" type="submit" id="bReg">Registrar</button>
+  </form>`;
+  const ler = () => ({ tipo: v.tipo, objeto: $('#gObj').value, loja_id: $('#gLoja').value, mes: $('#gMes').value, dia: $('#gDia').value, campo: $('#gCampo').value, valor_anterior: $('#gAnt').value, valor_novo: $('#gNovo').value, motivo: $('#gMot').value, origem: $('#gOri').value });
+  $('#bV').onclick = () => telaFPedidos();
+  app.querySelectorAll('[data-tp]').forEach(b => b.onclick = () => { const d = ler(); d.tipo = b.dataset.tp; telaFRegistrar('', d); });
+  $('#fReg').onsubmit = async ev => {
+    ev.preventDefault();
+    const d = ler();
+    if (!d.objeto) return telaFRegistrar('Escolha o assunto.', d);
+    if (!d.motivo.trim()) return telaFRegistrar('Informe o motivo.', d);
+    if (d.tipo === 'edicao_manual' && (!d.campo.trim() || !d.valor_novo.trim())) return telaFRegistrar('Na edição, diga o que foi alterado e como ficou.', d);
+    if (!confirm('Registrar? Depois de registrado, não pode ser alterado nem apagado.')) return;
+    ocupado($('#bReg'), true, 'Registrando…');
+    const { error } = await sb.from('fat_alteracoes').insert({
+      tipo: d.tipo, objeto: d.objeto, loja_id: d.loja_id ? +d.loja_id : null,
+      competencia: d.mes ? d.mes + '-01' : null, dia: d.dia || null,
+      campo: d.campo.trim() || null, valor_anterior: d.valor_anterior.trim() || null, valor_novo: d.valor_novo.trim() || null,
+      motivo: d.motivo.trim(), origem: d.origem, dispositivo: descAparelho()
+    });
+    if (error) return telaFRegistrar(msgErro(error), d);
+    FP.filtro = d.tipo === 'edicao_manual' ? 'edicoes' : 'abertos';
+    telaFPedidos();
+  };
+}
+
+function telaFAndamento(ped, erro, v) {
+  v = v || { situacao: '', motivo: '' };
+  window.scrollTo(0, 0);
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Pedido nº ${ped.id}</h1>
+  <div class="card"><p><strong>${esc(F_OBJETOS[ped.objeto] || ped.objeto)}</strong>${ped.campo ? ' · ' + esc(ped.campo) : ''}</p><p class="peq">${esc(ped.motivo)}</p></div>
+  <form class="card" id="fAnd" novalidate>
+    <label id="lAnd">Situação do pedido</label>
+    <div class="pills" role="group" aria-labelledby="lAnd">
+      ${[['em_andamento', 'Em andamento'], ['feita', 'Feito'], ['recusada', 'Recusado']].map(([k, n]) => `<button type="button" class="pill" data-st="${k}" aria-pressed="${v.situacao === k}">${n}</button>`).join('')}
+    </div>
+    <div class="campo"><label for="aMot">${v.situacao === 'recusada' ? 'Por que foi recusado?' : v.situacao === 'feita' ? 'O que foi feito?' : 'O que está sendo feito?'}</label><textarea id="aMot">${esc(v.motivo)}</textarea></div>
+    ${erro ? `<p class="erro" role="alert">${esc(erro)}</p>` : ''}
+    <button class="btn" type="submit" id="bAnd">Registrar andamento</button>
+  </form>`;
+  $('#bV').onclick = () => telaFPedidos();
+  app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => telaFAndamento(ped, '', { situacao: b.dataset.st, motivo: $('#aMot').value }));
+  $('#fAnd').onsubmit = async ev => {
+    ev.preventDefault();
+    const d = { situacao: v.situacao, motivo: $('#aMot').value };
+    if (!d.situacao) return telaFAndamento(ped, 'Escolha a situação.', d);
+    if (!d.motivo.trim()) return telaFAndamento(ped, 'Escreva o que foi feito ou o motivo.', d);
+    ocupado($('#bAnd'), true, 'Registrando…');
+    const { error } = await sb.from('fat_alteracoes').insert({ tipo: 'resposta', referencia_id: ped.id, situacao: d.situacao, objeto: ped.objeto, loja_id: ped.loja_id, motivo: d.motivo.trim(), origem: ped.origem, dispositivo: descAparelho() });
+    if (error) return telaFAndamento(ped, msgErro(error), d);
+    telaFPedidos();
+  };
+}
+
+/* ---- 3. Números do faturamento (por enquanto, só o que foi lançado pelo app) ---- */
+async function telaFNumeros() {
+  const t = hoje();
+  if (!FN.mes) FN.mes = iso(t).slice(0, 7);
+  app.innerHTML = '<div class="carregando">Carregando…</div>';
+  const { data, error } = await sb.from('fat_faturamento_mensal').select('*').eq('competencia', FN.mes + '-01').order('total', { ascending: false });
+  if (error) return fErroTela(error);
+  const lista = (data || []).filter(x => x.luc !== 'TESTE'); // a Loja Teste (demonstração) não entra nos números
+  const total = lista.reduce((a, x) => a + Number(x.total), 0);
+  const meses = []; for (let i = 0; i < 12; i++) meses.push(iso(new Date(t.getFullYear(), t.getMonth() - i, 1)).slice(0, 7));
+  app.innerHTML = `${fVoltarHtml()}
+  <h1>Faturamento do mês</h1>
+  <div class="aviso">Por enquanto, aqui aparece só o que as lojas lançaram pelo aplicativo. A coleta nas lojas continua na planilha FATURAMENTO 2026, que segue sendo a referência até a migração.</div>
+  <div class="campo"><label for="fnMes">Mês</label><select id="fnMes">${meses.map(m => `<option value="${m}" ${m === FN.mes ? 'selected' : ''}>${fMesBr(m)}</option>`).join('')}</select></div>
+  <div class="card"><span class="peq">Total lançado pelo app em ${fMesBr(FN.mes).toLowerCase()}</span><span class="num">R$ ${brl(total)}</span><span class="peq">${lista.length} loja(s)</span></div>
+  ${lista.length ? lista.map(x => `<div class="item"><div class="l1"><strong>${esc(fNomeLoja(x))}</strong><strong style="color:var(--azul)">R$ ${brl(x.total)}</strong></div>
+    <div class="l2"><span>${x.dias_lancados} dia(s) lançado(s)</span><span class="${x.fora_do_prazo ? 'atr' : 'okt'}">${x.fora_do_prazo ? x.fora_do_prazo + ' fora do prazo' : 'Tudo no prazo'}</span></div>
+    ${x.conflitos_planilha ? `<div class="l2"><span class="atr">${x.conflitos_planilha} valor(es) diferente(s) da planilha</span></div>` : ''}</div>`).join('')
+    : '<div class="card cinza"><p>Nenhum lançamento pelo app neste mês.</p></div>'}`;
+  fLigarVoltar();
+  $('#fnMes').onchange = e => { FN.mes = e.target.value; telaFNumeros(); };
+}
+
+/* ---- 4. Mais ---- */
+function telaFMais() {
+  app.innerHTML = `<h1>Mais opções</h1>
+  <button class="card amar" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="fmGuia">Como usar<br><span class="peq" style="font-weight:400">Validação, pedidos e edições</span></button>
+  <button class="card verde" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="fmSobre">Sobre o aplicativo</button>
+  <button class="card verm" style="font:inherit;font-weight:600;text-align:left;cursor:pointer;border-top:none;border-right:none;border-bottom:none" id="fmSair">Sair</button>
+  <p class="peq centro">Instale o app: no Android, menu ⋮ › Adicionar à tela inicial. No iPhone, Compartilhar › Adicionar à Tela de Início.</p>`;
+  $('#fmGuia').onclick = () => irPara('fGuia');
+  $('#fmSobre').onclick = () => irPara('fSobre');
+  $('#fmSair').onclick = sair;
+}
+function telaFGuia() {
+  app.innerHTML = `<button class="link" id="bV" style="align-self:flex-start">‹ Voltar</button>
+  <h1>Como usar</h1>
+  <div class="card"><strong style="color:var(--azul)">1. Validação</strong><p>Cada pergunta mostra o que está hoje na planilha FATURAMENTO 2026. Responda <strong>Está certo</strong>, <strong>Está errado</strong> (dizendo qual é o certo e por quê) ou <strong>Não sei</strong> (dizendo quem sabe). Você vê também o que a outra pessoa do Financeiro ou do Administrativo respondeu.</p></div>
+  <div class="card amar"><strong style="color:var(--azul)">2. Pedidos de mudança</strong><p>Precisa que algo mude no faturamento (um AMM, um percentual, o valor de um dia)? Registre o pedido com o motivo. Ele fica aberto até alguém registrar que foi feito ou recusado.</p></div>
+  <div class="card verm"><strong style="color:var(--azul)">3. Edições feitas à mão</strong><p>Toda vez que alterar algo direto na planilha, registre aqui como estava, como ficou e por quê. Assim a diretoria e a presidência sabem de onde veio cada número.</p></div>
+  <div class="card verde"><strong style="color:var(--azul)">4. Nada é apagado</strong><p>Respostas e registros ficam com nome, data e hora. Se errar, registre de novo explicando a correção: o anterior continua no histórico.</p></div>`;
+  $('#bV').onclick = () => irPara('fMais');
 }
 
 /* ============ INÍCIO ============ */

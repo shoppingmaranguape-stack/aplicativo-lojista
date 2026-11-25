@@ -1,5 +1,5 @@
 // Guarda só os arquivos do app. Dados do Supabase sempre vêm da internet.
-const CACHE = 'lojista-msh-v1';
+const CACHE = 'lojista-msh-v2';
 const ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './logo.png', './icone-192.png', './icone-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
